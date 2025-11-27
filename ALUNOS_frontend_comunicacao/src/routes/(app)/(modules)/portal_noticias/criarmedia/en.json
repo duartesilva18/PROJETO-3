@@ -1,0 +1,109 @@
+{
+    "Project": {
+        "name": "News Portal"
+    },
+
+    "Titulos":{
+        "Publicar":"Publish News",
+        "VerNoticia":"View News",
+        "Listar":"List News",
+        "Editar":"Edit News",
+        "Redes":"Social Networks"
+    },
+    "Modulos": {
+        "Publicar": "Publish News",
+        "VerNoticia": "View News",
+        "Listar": "List News",
+        "Editar": "Edit News",
+        "Redes": "Social Networks"
+    },
+    "teste": {
+        "modulo": "Base Module",
+        "teste": "News Portal",
+        "txt": "EN BBBB"
+    },
+
+    "tab": {
+        "publicar": "Publish",
+        "noticias": "News",
+        "redes": "Social media"
+    },
+
+    "divEditar":{
+        "editarNoticia":"Edit New",
+        "anexosExistentes":"Existing Attachments:",
+        "anexosUpload":"Upload Attachments:",
+        "noAnexos":"No Attachments"
+    },
+
+    "divPublicar": {
+        "Titulo": "Title",
+        "Email": "Email",
+        "Texto": "Text",
+        "Assunto": "Subject",
+        "Anexos": "Attachments",
+        "sAnexos": "Selected Attachments",
+        "btSubmeter": "Submit",
+        "Categoria":"Categories",
+        "Pedidos": "Orders",
+        "radiosjornais": "radio/newspaper",
+        "rs":"Social Networks",
+        "selCategoria":"Select Category",
+        "selPedido":"Select the Order",
+        "remover":"Remove",
+        "removerTag":"Remove Tag",
+        "addTag":"Add Tag",
+        "textoPara":"Text for:",
+        "tagsPara": "Select Tags",
+        "selTag":"Select Tag",
+        "textoParaRS":"Text for Social Networks:",
+        "AnexosVazio":"No attachments selected!",
+        "inText":"Insert the Text",
+        "inTitle":"Insert the Title",
+        "inAssunto":"Insert the Subject",
+        "inAnexos":"Add files",
+        "cria":"Create News",
+        "editar":"Save changes",
+        "listar":"List News"
+    },
+    "divNoticias": {
+        "Titulo": "Title",
+        "DeData": "From",
+        "AteData": "Up to",
+        "btPesquisar": "Search",
+        "todas":"All",
+        "data":"Date",
+        "estado":"Status",
+        "todos":"All",
+        "pendente":"Pendent",
+        "publicado":"Published",
+        "agendado":"Scheduled",
+        "addFiltros":"Add Filters",
+        "ocultarFiltros":"Hide Filters",
+        "mostrarFiltros":"Show Filters",
+        "titulo":"Title",
+        "texto":"Text",
+        "dataCriacao":"Creation Date",
+        "categoria":"Category",
+        "editar":"Edit",
+        "eleminar":"Delete",
+        "excluir":"Exclude",
+        "nExisteNoticia":"There arent any News",
+        "editarNoticia":"Edit News",
+        "publicarNoticia":"Publicar Noticia",
+        "rs_message": "No social networks selected!",
+        "publish_message":"Publish new",
+        "anexo": "Affix",
+        "anexos": "Affixes",
+        "sanexos": "No affixes"
+
+    },
+    "divRedes": {
+        "Esp": "Specifications",
+        "Ftexto": "Text Formatting",
+        "Hashtags": "Hashtags",
+        "Fvideo": "Video Filters",
+        "Fimagem": "Image Filters",
+        "FormTitulo": "Title Formatting"
+    }
+}

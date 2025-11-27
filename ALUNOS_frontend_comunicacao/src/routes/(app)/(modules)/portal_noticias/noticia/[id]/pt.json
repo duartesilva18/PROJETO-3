@@ -1,0 +1,113 @@
+{
+    "Project":{
+        "name":"Portal de Noticias"
+    },
+    "Titulos":{
+        "Publicar":"Publicar Noticia",
+        "VerNoticia":"Ver Noticia",
+        "Listar":"Listar Noticias",
+        "Editar":"Editar Noticias",
+        "Redes":"Redes Sociais"
+    },
+    "Modulos": {
+        "Publicar": "Publicar Noticia",
+        "VerNoticia": "Ver Noticia",
+        "Listar": "Listar Noticias",
+        "Editar": "Editar Noticias",
+        "Redes": "Redes Sociais"
+    },
+
+    "tab": {
+        "publicar": "Publicar",
+        "noticias": "Noticias",
+        "VerNoticia": "Noticia"
+    },
+    "divPublicar": {
+        "Titulo": "Titulo",
+        "Texto": "Texto",
+        "Anexos": "Anexos",
+        "sAnexos": "Anexos Selecionados",
+        "btSubmeter": "Submeter",
+        "Categorias": "Categoria",
+        "rs": "Redes Sociais",
+        "AnexosVazio": "Não existem anexos selecionados!",
+        "selCategoria":"Selecione a Categoria",
+        "remover":"Remover",
+        "cria":"Adicionar Noticia",
+        "removerTag":"Remover Tag",
+        "addTag":"Adicionar Tag",
+        "selTag":"Selecionar Tags",
+        "textoPara": "Texto para:",
+        "tagsPara": "Selecionar Tags:",
+        "textoParaRS":"Texto para Redes Sociais:",
+        "inText":"Insira o Texto",
+        "inTitle":"Insira o Titulo",
+        "inAnexos":"Adicione Ficheiros",
+        "editar":"Guardar Alterações",
+        "listar":"Listar Noticias"
+        
+    },
+
+    "divEditar":{
+        "editarNoticia":"Editar Noticia",
+        "anexosExistentes":"Anexos existentes:",
+        "anexosUpload":"Anexos para Upload:",
+        "noAnexos":"Sem Anexos"
+    },
+
+    "divNoticias": {
+        "Titulo": "Titulo",
+        "Radio_Jornal": "Radio/Jornal",
+        "Texto": "Texto",
+        "Pedido": "Pedido",
+        "DeData": "De",
+        "AteData": "Até",
+        "btPesquisar": "Pesquisar",
+        "todas":"Todas",
+        "data":"Data",
+        "estado":"Estado",
+        "todos":"Todos",
+        "pendente":"Pendente",
+        "publicado":"Publicado",
+        "agendado":"Agendado",
+        "acao":"Ação",
+        "back":"Voltar",
+        "addFiltros":"Adicionar Filtros",
+        "ocultarFiltros":"Ocultar Filtros",
+        "mostrarFiltros":"Mostrar Filtros",
+        "titulo":"Titulo",
+        "texto":"Texto",
+        "dataCriacao":"Data de Criação",
+        "categoria":"Categoria",
+        "editar":"Editar",
+        "eliminar":"Eliminar",
+        "excluir":"Excluir",
+        "nExisteNoticia":"Não Existe Noticias",
+        "editarNoticia":"Editar Noticias",
+        "publicarNoticia":"Publicar Noticia",
+        "rs_message":"Nenhuma rede Social foi selecionada",
+        "publish_message":"Publicar Noticia",
+        "actions":"Ações",
+        "anexo": "Anexo",
+        "anexos": "Anexos",
+        "sanexos": "S/ Anexos"
+    },
+  
+    "divRedes": {
+        "Esp": "Especificações",
+        "Ftexto": "Formatação de Texto",
+        "Hashtags": "Hashtags",
+        "Fvideo": "Filtros de Video",
+        "Fimagem": "Filtros de Imagem",
+        "FormTitulo": "Formatação do Titulo"
+    },
+    "divMessagesDelete": {
+        "titulo": "Tem certeza que deseja excluir a notícia?",
+        "text": "Esta ação não pode ser desfeita!",
+        "confirmButton": "Hashtags",
+        "cancelButtonText": "Filtros de Video",
+        "success": "A notícia foi excluída com sucesso.",
+        "excluido": "Formatação do Titulo"
+    }
+   
+}
