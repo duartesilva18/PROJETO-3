@@ -11,6 +11,9 @@ import { configurePortalSidebar } from '../../sidebar.config.js';
 const translate = (key) => get(t)(key);
 configurePortalSidebar('dashboard', translate);
 
+const breadcrumModuleName = 'Gestão de Notícias';
+const breadcrumPageName = 'Editar Notícia';
+
 
 	const noticiaId = $page.params.id;
 
@@ -498,7 +501,11 @@ configurePortalSidebar('dashboard', translate);
 </style>
 
 
-<Breadcrum modulo={1} objeto={1} menu_items={items_breadcrum} />
+<Breadcrum
+	modulo={breadcrumModuleName}
+	objeto={breadcrumPageName}
+	menu_items={items_breadcrum}
+/>
 <div class="container-fluid mt-4">
 	<form onsubmit={onHandleSubmit} class="form-container">
 		<div class="row">

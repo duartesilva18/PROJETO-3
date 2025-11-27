@@ -1,18 +1,22 @@
 <script>
 	import { goto } from '$app/navigation';
-	import Breadcrum from '$lib/components/Breadcrum.svelte';
+import Breadcrum from '$lib/components/Breadcrum.svelte';
 import { t } from '$lib/translations/translations';
-	import { onMount } from 'svelte';
-	import SuccesModal from '../noticia/[id]/modals/SuccesModal.svelte';
+import { onMount } from 'svelte';
+import SuccesModal from '../noticia/[id]/modals/SuccesModal.svelte';
 import { configurePortalSidebar } from '../sidebar.config.js';
+import { get } from 'svelte/store';
 
 
 	
 
 
 
-const translate = (key) => $t(key);
+const translate = (key) => get(t)(key);
 configurePortalSidebar('criar', translate);
+
+const breadcrumModuleName = 'Gestão de Notícias';
+const breadcrumPageName = 'Criar Notícia';
 
 	/**
 	 * Objeto para armazenar os valores dos campos do formulário.
@@ -611,7 +615,11 @@ configurePortalSidebar('criar', translate);
 
 </style>
 
-<Breadcrum modulo={1} objeto={1} menu_items={items_breadcrum} />
+<Breadcrum
+	modulo={breadcrumModuleName}
+	objeto={breadcrumPageName}
+	menu_items={items_breadcrum}
+/>
 <div class="container-fluid mt-4">
   <form onsubmit={onHandleSubmit} class="form-container">
     <div class="row">

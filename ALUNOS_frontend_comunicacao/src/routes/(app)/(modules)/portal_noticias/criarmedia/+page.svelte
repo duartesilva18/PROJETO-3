@@ -15,6 +15,9 @@ import { get } from 'svelte/store';
 const translate = (key) => get(t)(key);
 configurePortalSidebar('criarMedia', translate);
 
+const breadcrumModuleName = 'Gestão de Notícias';
+const breadcrumPageName = 'Criar Media';
+
 
 	/**
 	 * Objeto para armazenar os valores dos campos do formulário.
@@ -519,7 +522,11 @@ configurePortalSidebar('criarMedia', translate);
 
 </style>
 
-<Breadcrum modulo={1} objeto={1} menu_items={items_breadcrum} />
+<Breadcrum
+	modulo={breadcrumModuleName}
+	objeto={breadcrumPageName}
+	menu_items={items_breadcrum}
+/>
 <div class="container-fluid mt-4">
   <form onsubmit={onHandleSubmit} class="form-container">
     <div class="row">
