@@ -5,6 +5,7 @@ import { t } from '$lib/translations/translations';
 import { onMount } from 'svelte';
 import SuccesModal from '../noticia/[id]/modals/SuccesModal.svelte';
 import { configurePortalSidebar } from '../sidebar.config.js';
+import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 import { get } from 'svelte/store';
 
 
@@ -14,9 +15,6 @@ import { get } from 'svelte/store';
 
 const translate = (key) => get(t)(key);
 configurePortalSidebar('criar', translate);
-
-const breadcrumModuleName = 'Gestão de Notícias';
-const breadcrumPageName = 'Criar Notícia';
 
 	/**
 	 * Objeto para armazenar os valores dos campos do formulário.
@@ -616,8 +614,8 @@ const breadcrumPageName = 'Criar Notícia';
 </style>
 
 <Breadcrum
-	modulo={breadcrumModuleName}
-	objeto={breadcrumPageName}
+	modulo={sidebarOptions.currentModule}
+	objeto={sidebarOptions.currentObject}
 	menu_items={items_breadcrum}
 />
 <div class="container-fluid mt-4">

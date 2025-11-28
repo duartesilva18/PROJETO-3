@@ -23,7 +23,7 @@ export class CategoriaService {
         return await this.prisma.pn_categoria.create({
           data: {
             nome: dto.nome,
-  
+            status: dto.status ?? 'Ativo',
           }
         })
       } catch (error) {
@@ -49,9 +49,8 @@ export class CategoriaService {
       }
 
       try {
-        return await this.prisma.pn_categoria.update({
+        return await this.prisma.pn_categoria.delete({
           where: { id_categoria: categoria_id },
-          data: { status: 'Desativo' }
         })
       } catch (error) {
         return {
@@ -69,11 +68,15 @@ export class CategoriaService {
         },
       })
   
+      const data: { nome: string; status?: string } = {
+        nome: dto.nome,
+      }
+
+      data.status = dto.status ?? categoria_Exist?.status ?? 'Ativo';
+  
       try {
         return await this.prisma.pn_categoria.update({
-          data: {
-            nome: dto.nome,
-          },
+          data,
           where: {
             id_categoria: categoria_ID,
           }

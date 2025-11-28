@@ -19,5 +19,6 @@ export let pageIds = {
         criar: { moduleId: modules.portalNoticias, objectId: 2 },
         criarMedia: { moduleId: modules.portalNoticias, objectId: 3 },
         radios: { moduleId: modules.portalNoticias, objectId: 4 },
+        categorias: { moduleId: modules.portalNoticias, objectId: 5 },
     },
 }

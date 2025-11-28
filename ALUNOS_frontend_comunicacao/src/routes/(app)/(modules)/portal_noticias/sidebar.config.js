@@ -4,13 +4,14 @@ import { pageIds } from '$lib/js/pageIds.conf.js';
 
 const NAV_ITEMS = [
 	{ key: 'dashboard', path: '/portal_noticias', labelKey: 'sidebarPortal.dashboard' },
+	{ key: 'categorias', path: '/portal_noticias/categorias', labelKey: 'sidebarPortal.categorias' },
 	{ key: 'criar', path: '/portal_noticias/criar', labelKey: 'sidebarPortal.criar' },
 	{ key: 'criarMedia', path: '/portal_noticias/criarmedia', labelKey: 'sidebarPortal.criarMedia' },
 	{ key: 'radios', path: '/radio_jornal', labelKey: 'sidebarPortal.radios' }
 ];
 
 /**
- * @param {'dashboard' | 'criar' | 'criarMedia' | 'radios'} activeKey
+ * @param {'dashboard' | 'categorias' | 'criar' | 'criarMedia' | 'radios'} activeKey
  * @param {(key: string) => string} translate
  */
 export function configurePortalSidebar(activeKey, translate) {

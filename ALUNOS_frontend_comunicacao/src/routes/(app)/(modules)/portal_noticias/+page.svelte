@@ -1,11 +1,12 @@
 <script>
-import { run } from 'svelte/legacy';
+	import { run, preventDefault } from 'svelte/legacy';
 	import { modalStore } from '$lib/stores/modalStore';
 
 import Breadcrum from '$lib/components/Breadcrum.svelte';
 import { locale, t } from '$lib/translations/translations';
 import RemoveModal from './noticia/[id]/modals/RemoveModal.svelte';
 import { configurePortalSidebar } from './sidebar.config.js';
+import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -17,9 +18,6 @@ import diacriticless from 'diacriticless';
 
 const translate = (key) => get(t)(key);
 configurePortalSidebar('dashboard', translate);
-
-const breadcrumModuleName = 'Gestão de Notícias';
-const breadcrumPageName = 'Portal de Notícias';
 
 	/** @type {RemoveModal} */
 	let removeModalBind = $state();
@@ -46,140 +44,6 @@ const breadcrumPageName = 'Portal de Notícias';
 	let radioTable;
 
 	let isToggled = true; // true = tabela rádios, false = tabela normal
-let showCategoryManagerModal = $state(false);
-let newCategoryName = $state('');
-let editingCategoryId = $state(null);
-let editCategoryName = $state('');
-
-async function openCategoryManager() {
-	newCategoryName = '';
-	await refreshCategoriasFromServer();
-	showCategoryManagerModal = true;
-}
-
-function closeCategoryManager() {
-	showCategoryManagerModal = false;
-	cancelEditCategory();
-}
-
-function cancelEditCategory() {
-	editingCategoryId = null;
-	editCategoryName = '';
-}
-
-function handleCategoryModalKeydown(/** @type {KeyboardEvent} */ event) {
-	if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
-		event.preventDefault();
-		closeCategoryManager();
-	}
-}
-
-async function refreshCategoriasFromServer() {
-	try {
-		const updatedCategorias = await fetch('/ep/portal_noticias/categorias').then((d) => d.json());
-		categorias = Array.isArray(updatedCategorias)
-			? updatedCategorias.filter((categoria) => categoria.status === 'Ativo')
-			: [];
-	} catch (error) {
-		console.error('Erro ao atualizar categorias:', error);
-	}
-}
-
-async function handleAddCategorySubmit(/** @type {SubmitEvent} */ event) {
-	event.preventDefault();
-	if (!newCategoryName.trim()) {
-		return;
-	}
-
-	try {
-		const response = await fetch('/ep/portal_noticias/categorias', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				nome: newCategoryName.trim(),
-				descricao: '',
-				status: 'Ativo'
-			})
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({}));
-			throw new Error(errorData?.message ?? 'Não foi possível criar a categoria');
-		}
-
-		await refreshCategoriasFromServer();
-		newCategoryName = '';
-	} catch (error) {
-		console.error('Erro ao criar categoria:', error);
-		alert(error.message ?? 'Erro ao criar categoria');
-	}
-}
-
-function startEditCategory(category) {
-	editingCategoryId = category.id_categoria;
-	editCategoryName = category.nome ?? '';
-}
-
-async function handleEditCategorySubmit(/** @type {SubmitEvent} */ event) {
-	event.preventDefault();
-	if (!editingCategoryId || !editCategoryName.trim()) {
-		return;
-	}
-
-	const categoriaAtual = Array.isArray(categorias)
-		? categorias.find((cat) => cat.id_categoria === editingCategoryId)
-		: undefined;
-
-	try {
-		const response = await fetch(`/ep/portal_noticias/categorias/${editingCategoryId}`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				nome: editCategoryName.trim(),
-				descricao: categoriaAtual?.descricao ?? '',
-				status: categoriaAtual?.status ?? 'Ativo'
-			})
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({}));
-			throw new Error(errorData?.message ?? 'Não foi possível atualizar a categoria');
-		}
-
-		await refreshCategoriasFromServer();
-		cancelEditCategory();
-	} catch (error) {
-		console.error('Erro ao atualizar categoria:', error);
-		alert(error.message ?? 'Erro ao atualizar categoria');
-	}
-}
-
-async function handleDeleteCategory(idCategoria) {
-	if (!idCategoria) return;
-
-	if (!confirm('Tem a certeza que pretende eliminar esta categoria?')) {
-		return;
-	}
-
-	try {
-		const response = await fetch(`/ep/portal_noticias/categorias/${idCategoria}`, {
-			method: 'DELETE'
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({}));
-			throw new Error(errorData?.message ?? 'Não foi possível eliminar a categoria');
-		}
-
-		await refreshCategoriasFromServer();
-		if (editingCategoryId === idCategoria) {
-			cancelEditCategory();
-		}
-	} catch (error) {
-		console.error('Erro ao eliminar categoria:', error);
-		alert(error.message ?? 'Erro ao eliminar categoria');
-	}
-}
 
 	// tipo 0 ou null/undefined contam para tabela normal
 	function isTipoNormal(noticia) {
@@ -191,25 +55,25 @@ async function handleDeleteCategory(idCategoria) {
 		return noticia.tipo === 1;
 	}
 
-function toggleFeature() {
-	isToggled = !isToggled;
+	function toggleFeature() {
+		isToggled = !isToggled;
 
-	const categoriaInputContainer = document.getElementById('categoriaInputContainer');
-	if (isToggled) {
-		document.getElementById('radioTable').hidden = false;
-		document.getElementById('defaultTable').hidden = true;
-		refreshRadioTable();
-		if (categoriaInputContainer) categoriaInputContainer.style.display = 'none';
-	} else {
-		document.getElementById('radioTable').hidden = true;
-		document.getElementById('defaultTable').hidden = false;
-		refreshTable();
-		if (table && table.columns) {
-			table.columns.adjust().responsive.recalc();
+		const categoriaInputContainer = document.getElementById('categoriaInputContainer');
+		if (isToggled) {
+			document.getElementById('radioTable').hidden = false;
+			document.getElementById('defaultTable').hidden = true;
+			refreshRadioTable();
+			if (categoriaInputContainer) categoriaInputContainer.style.display = 'none';
+		} else {
+			document.getElementById('radioTable').hidden = true;
+			document.getElementById('defaultTable').hidden = false;
+			refreshTable();
+			if (table && table.columns) {
+				table.columns.adjust().responsive.recalc();
+			}
+			if (categoriaInputContainer) categoriaInputContainer.style.display = 'block';
 		}
-		if (categoriaInputContainer) categoriaInputContainer.style.display = 'block';
 	}
-}
 
 	function getRadioJornalNames(idsString) {
 		if (!idsString) return 'Sem rádios/jornais';
@@ -600,9 +464,7 @@ function toggleFeature() {
 		notData = noticiasDatamedia;
 
 		jornais_radios = radio_jornal_fetch;
-		categorias = Array.isArray(categorias_fetch)
-			? categorias_fetch.filter((categoria) => categoria.status === 'Ativo')
-			: [];
+		categorias = categorias_fetch;
 
 		table = jQuery(el).DataTable({
 			dom: 'Bfrtip',
@@ -672,28 +534,15 @@ function toggleFeature() {
 				noticia.texto_tiktok
 			];
 
-			const rowNode = table.row.add(rowData).node();
-			rowNode.dataset.rowindex = String(index);
-			rowNode.classList.add('clickable-row');
+			table.row.add(rowData).node();
 		});
 
 		jQuery(el)
-			.off('click', 'tbody tr.clickable-row')
-			.on('click', 'tbody tr.clickable-row', function (event) {
-				const target = event.target;
-				const isActionButton = jQuery(target).closest(
-					'.table_button_details_projeto_class, .table_button_edit_projeto_class, .table_button_delete_projeto_class, button, a'
-				).length;
-				if (isActionButton) {
-					return;
-				}
-
-				const rowIndex = this.dataset.rowindex;
-				if (rowIndex === undefined) return;
-				const noticia = filteredNoticias[Number(rowIndex)];
-				if (noticia) {
-					showFullNews(noticia);
-				}
+			.off('click', '.clickable-cell')
+			.on('click', '.clickable-cell', function () {
+				const rowIndex = jQuery(this).data('rowindex');
+				const noticia = filteredNoticias[rowIndex];
+				showFullNews(noticia);
 			});
 
 		jQuery(document)
@@ -742,7 +591,8 @@ function toggleFeature() {
 
 		radioTable.clear();
 
-		noticiasDatamedia.forEach((noticia, index) => {
+		n
+otíciasDatamedia.forEach((noticia, index) => {
 			const rowData = [
 				`<div class="clickable-cell2" data-rowindex="${index}">${noticia.titulo}</div>`,
 				noticia.estado,
@@ -752,28 +602,15 @@ function toggleFeature() {
 				getRadioJornalnumero(noticia.emails)
 			];
 
-			const rowNode = radioTable.row.add(rowData).node();
-			rowNode.dataset.rowindex = String(index);
-			rowNode.classList.add('clickable-row');
+			radioTable.row.add(rowData).node();
 		});
 
 		jQuery(radioTableEl)
-			.off('click', 'tbody tr.clickable-row')
-			.on('click', 'tbody tr.clickable-row', function (event) {
-				const target = event.target;
-				const isActionButton = jQuery(target).closest(
-					'.table_button_details_projeto2_class, .table_button_edit_projeto2_class, .table_button_delete_projeto2_class, button, a'
-				).length;
-				if (isActionButton) {
-					return;
-				}
-
-				const rowIndex = this.dataset.rowindex;
-				if (rowIndex === undefined) return;
-				const noticia = noticiasDatamedia[Number(rowIndex)];
-				if (noticia) {
-					showFullNews(noticia);
-				}
+			.off('click', '.clickable-cell2')
+			.on('click', '.clickable-cell2', function () {
+				const rowIndex = jQuery(this).data('rowindex');
+				const noticia = noticiasDatamedia[rowIndex];
+				showFullNews(noticia);
 			});
 
 		jQuery(document)
@@ -823,17 +660,17 @@ function toggleFeature() {
 </script>
 
 <Breadcrum
-	modulo={breadcrumModuleName}
-	objeto={breadcrumPageName}
+	modulo={sidebarOptions.currentModule}
+	objeto={sidebarOptions.currentObject}
 	menu_items={items_breadcrum}
 />
 
 <div class="tableNews">
 	<div class="row filter">
-		<form onsubmit={onHandleSubmit} class="w-100">
+		<form onsubmit={preventDefault(onHandleSubmit)} class="w-100">
 			<div class="row filter-row align-items-start g-3">
 				<!-- CATEGORIA -->
-				<div class="col-md-2 col-lg-2" id="categoriaInputContainer">
+				<div class="col-md-3 col-lg-3" id="categoriaInputContainer">
 					<label for="categoriaInput" class="filter-label">
 						{$t('divPublicar.Categorias')}
 					</label>
@@ -850,7 +687,7 @@ function toggleFeature() {
 				</div>
 	
 				<!-- ESTADO -->
-				<div class="col-md-2 col-lg-2">
+				<div class="col-md-3 col-lg-3">
 					<label for="estadoInput" class="filter-label">
 						{$t('divNoticias.estado')}
 					</label>
@@ -861,7 +698,7 @@ function toggleFeature() {
 					>
 						<option value="">{ $t('divNoticias.todos') }</option>
 						<option value={$t('divNoticias.pendente')}>
-							{ $t('divNoticias.pendente') }
+							{ !isToggled ? $t('divNoticias.pendente') : 'Rascunho' }
 						</option>
 						<option value={$t('divNoticias.publicado')}>{ $t('divNoticias.publicado') }</option>
 						{#if !isToggled}
@@ -882,7 +719,6 @@ function toggleFeature() {
 						<i class="fas fa-search"></i>
 					</button>
 				</div>
-
 			</div>
 		</form>
 	</div>
@@ -910,13 +746,6 @@ function toggleFeature() {
 					</div>
 				</div>
 			{/if}
-
-			<div class="add-category-footer">
-				<button type="button" class="btn btn-primary btn-sm add-category-footer-btn" onclick={openCategoryManager}>
-					<i class="fas fa-cog me-2"></i>
-					Gerir categorias
-				</button>
-			</div>
 		</div>
 
 		<!-- Tabela rádios -->
@@ -930,85 +759,6 @@ function toggleFeature() {
 		</div>
 	</div>
 </div>
-
-{#if showCategoryManagerModal}
-	<div class="add-category-layer">
-		<div
-			class="add-category-backdrop"
-			role="button"
-			tabindex="0"
-			aria-label="Fechar gestor de categorias"
-			onclick={closeCategoryManager}
-			onkeydown={handleCategoryModalKeydown}
-		></div>
-		<div class="add-category-modal" role="dialog" aria-modal="true">
-			<h5>Gerir categorias</h5>
-
-			<section class="category-section">
-				<h6>Adicionar nova</h6>
-				<form onsubmit={handleAddCategorySubmit} class="category-form">
-					<input
-						id="newCategoryName"
-						type="text"
-						class="form-control"
-						placeholder="Inserir nome"
-						bind:value={newCategoryName}
-					/>
-					<button type="submit" class="btn btn-primary btn-sm">Adicionar</button>
-				</form>
-			</section>
-
-			<section class="category-section">
-				<h6>Existentes</h6>
-
-				{#if !Array.isArray(categorias) || categorias.length === 0}
-					<p class="text-muted small mb-0">Ainda não existem categorias</p>
-				{:else}
-					<div class="category-list">
-						{#each categorias as categoria}
-							<div class="category-list-item">
-								{#if editingCategoryId === categoria.id_categoria}
-									<form class="category-form inline" onsubmit={handleEditCategorySubmit}>
-										<input
-											type="text"
-											class="form-control"
-											bind:value={editCategoryName}
-											placeholder="Nome da categoria"
-										/>
-										<button type="submit" class="btn btn-primary btn-sm">Guardar</button>
-										<button type="button" class="btn btn-outline-secondary btn-sm" onclick={cancelEditCategory}>
-											Cancelar
-										</button>
-									</form>
-								{:else}
-									<div class="category-name">{categoria.nome}</div>
-									<div class="category-actions">
-										<button type="button" class="btn btn-link p-0" onclick={() => startEditCategory(categoria)}>
-											Editar
-										</button>
-										<button
-											type="button"
-											class="btn btn-link text-danger p-0"
-											onclick={() => handleDeleteCategory(categoria.id_categoria)}
-										>
-											Apagar
-										</button>
-									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</section>
-
-			<div class="modal-actions end">
-				<button type="button" class="btn btn-outline-secondary btn-sm" onclick={closeCategoryManager}>
-					Fechar
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
 
 <RemoveModal bind:this={removeModalBind} on:refreshData={onDeleteRow} />
 
@@ -1040,11 +790,6 @@ function toggleFeature() {
 	box-shadow: none;
 }
 
-#categoriaInputContainer {
-	padding-left: 0;
-	margin-left: -20px;
-}
-
 /* botão azul à direita, com largura fixa tipo print */
 .filter-submit {
 	height: 34px;
@@ -1062,151 +807,5 @@ function toggleFeature() {
 .filter-submit i {
 	font-size: 15px;
 }
-
-.add-category-footer {
-	display: flex;
-	justify-content: flex-start;
-}
-
-.add-category-footer-btn {
-	min-width: 190px;
-	background-color: #00a4e6;
-	border-color: #00a4e6;
-	color: #fff;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
-}
-
-.add-category-footer-btn i {
-	font-size: 13px;
-}
-
-.add-category-layer {
-	position: fixed;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	z-index: 1050;
-}
-
-.add-category-backdrop {
-	position: absolute;
-	inset: 0;
-	background-color: rgba(0, 0, 0, 0.35);
-	border: none;
-	padding: 0;
-	margin: 0;
-	cursor: pointer;
-}
-
-.add-category-backdrop:focus {
-	outline: none;
-}
-
-.add-category-modal {
-	position: relative;
-	z-index: 1060;
-	background: #fff;
-	border-radius: 6px;
-	padding: 24px;
-	width: min(420px, 90vw);
-	box-shadow: 0 10px 35px rgba(37, 43, 70, 0.2);
-}
-
-.add-category-modal h5 {
-	font-size: 16px;
-	font-weight: 600;
-	margin-bottom: 16px;
-	text-transform: uppercase;
-	color: #344153;
-}
-
-.add-category-modal h6 {
-	font-size: 13px;
-	font-weight: 600;
-	color: #5b6d7c;
-	text-transform: uppercase;
-	margin-bottom: 10px;
-}
-
-.category-section + .category-section {
-	margin-top: 18px;
-}
-
-.category-form {
-	display: flex;
-	gap: 10px;
-	flex-wrap: wrap;
-}
-
-.category-form.inline {
-	width: 100%;
-}
-
-.category-form.inline input {
-	flex: 1;
-}
-
-.category-list {
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-	max-height: 260px;
-	overflow-y: auto;
-	padding-right: 4px;
-}
-
-.category-list-item {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	border: 1px solid #e5eaef;
-	border-radius: 4px;
-	padding: 8px 12px;
-	gap: 12px;
-}
-
-.category-name {
-	font-size: 14px;
-	font-weight: 500;
-	color: #344153;
-}
-
-.category-actions {
-	display: flex;
-	gap: 12px;
-}
-
-.category-actions .btn-link {
-	font-size: 13px;
-	text-decoration: none;
-}
-
-.category-actions .btn-link:hover {
-	text-decoration: underline;
-}
-
-.add-category-modal .modal-actions {
-	margin-top: 18px;
-	display: flex;
-	justify-content: flex-end;
-	gap: 10px;
-}
-
-.add-category-modal .modal-actions.end {
-	margin-top: 24px;
-}
-
-:global(.clickable-row) {
-	cursor: pointer;
-}
-
-
 
 </style>

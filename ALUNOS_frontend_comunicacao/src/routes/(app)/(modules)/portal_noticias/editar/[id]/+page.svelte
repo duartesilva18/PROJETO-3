@@ -1,18 +1,16 @@
 <script>
 	import { goto } from '$app/navigation';
-	import Breadcrum from '$lib/components/Breadcrum.svelte';
+import Breadcrum from '$lib/components/Breadcrum.svelte';
 import { t } from '$lib/translations/translations';
 	import { onMount } from 'svelte';
 	import SuccesModal from '../../noticia/[id]/modals/SuccesModal.svelte';
 import { page } from '$app/stores';
 import { get } from 'svelte/store';
 import { configurePortalSidebar } from '../../sidebar.config.js';
+import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 
 const translate = (key) => get(t)(key);
 configurePortalSidebar('dashboard', translate);
-
-const breadcrumModuleName = 'Gestão de Notícias';
-const breadcrumPageName = 'Editar Notícia';
 
 
 	const noticiaId = $page.params.id;
@@ -502,8 +500,8 @@ const breadcrumPageName = 'Editar Notícia';
 
 
 <Breadcrum
-	modulo={breadcrumModuleName}
-	objeto={breadcrumPageName}
+	modulo={sidebarOptions.currentModule}
+	objeto={sidebarOptions.currentObject}
 	menu_items={items_breadcrum}
 />
 <div class="container-fluid mt-4">

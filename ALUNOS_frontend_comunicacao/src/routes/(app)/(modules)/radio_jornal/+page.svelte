@@ -2,10 +2,11 @@
 	import { run, preventDefault } from 'svelte/legacy';
 	import { modalStore } from '$lib/stores/modalStore';
 
-	import Breadcrum from '$lib/components/Breadcrum.svelte';
+import Breadcrum from '$lib/components/Breadcrum.svelte';
 	import { locale, t } from '$lib/translations/translations';
 import RemoveModal from './RemoverMediaModal.svelte';
 import { configurePortalSidebar } from '../portal_noticias/sidebar.config.js';
+import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -611,7 +612,11 @@ async function adicionarRadio() {
 	
 </script>
 
-<Breadcrum modulo={1} objeto={1} menu_items={items_breadcrum} />
+<Breadcrum
+	modulo={sidebarOptions.currentModule}
+	objeto={sidebarOptions.currentObject}
+	menu_items={items_breadcrum}
+/>
 
 <div class="tableNews">
 	<div class="row filter">
