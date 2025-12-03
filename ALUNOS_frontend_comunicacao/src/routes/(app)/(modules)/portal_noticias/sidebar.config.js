@@ -5,13 +5,15 @@ import { pageIds } from '$lib/js/pageIds.conf.js';
 const NAV_ITEMS = [
 	{ key: 'dashboard', path: '/portal_noticias', labelKey: 'sidebarPortal.dashboard' },
 	{ key: 'categorias', path: '/portal_noticias/categorias', labelKey: 'sidebarPortal.categorias' },
+	{ key: 'tags', path: '/portal_noticias/tags', labelKey: 'sidebarPortal.tags' },
+	{ key: 'agendamentos', path: '/portal_noticias/agendamentos', labelKey: 'sidebarPortal.agendamentos' },
 	{ key: 'criar', path: '/portal_noticias/criar', labelKey: 'sidebarPortal.criar' },
 	{ key: 'criarMedia', path: '/portal_noticias/criarmedia', labelKey: 'sidebarPortal.criarMedia' },
 	{ key: 'radios', path: '/radio_jornal', labelKey: 'sidebarPortal.radios' }
 ];
 
 /**
- * @param {'dashboard' | 'categorias' | 'criar' | 'criarMedia' | 'radios'} activeKey
+ * @param {'dashboard' | 'categorias' | 'tags' | 'agendamentos' | 'criar' | 'criarMedia' | 'radios'} activeKey
  * @param {(key: string) => string} translate
  */
 export function configurePortalSidebar(activeKey, translate) {

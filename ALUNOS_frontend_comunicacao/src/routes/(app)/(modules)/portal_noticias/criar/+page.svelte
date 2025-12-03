@@ -1,7 +1,7 @@
 <script>
 	import { goto } from '$app/navigation';
 import Breadcrum from '$lib/components/Breadcrum.svelte';
-import { t } from '$lib/translations/translations';
+import { locale, t } from '$lib/translations/translations';
 import { onMount } from 'svelte';
 import SuccesModal from '../noticia/[id]/modals/SuccesModal.svelte';
 import { configurePortalSidebar } from '../sidebar.config.js';
@@ -15,6 +15,29 @@ import { get } from 'svelte/store';
 
 const translate = (key) => get(t)(key);
 configurePortalSidebar('criar', translate);
+const TRANSLATION_FALLBACK = 'Loading translation...';
+
+/**
+ * @param {string} key
+ * @param {string} fallbackPt
+ * @param {string} [fallbackEn]
+ */
+function tf(key, fallbackPt, fallbackEn = fallbackPt) {
+	const value = translate(key);
+	if (!value || value === TRANSLATION_FALLBACK) {
+		const currentLocale = get(locale);
+		return currentLocale === 'en' ? fallbackEn : fallbackPt;
+	}
+	return value;
+}
+
+const NETWORK_FIELD_MAP = {
+	instagram: 'texto_instagram',
+	facebook: 'texto_facebook',
+	twitter: 'texto_twitter',
+	linkedin: 'texto_linkedin',
+	tiktok: 'texto_tiktok'
+};
 
 	/**
 	 * Objeto para armazenar os valores dos campos do formulário.
@@ -44,7 +67,16 @@ configurePortalSidebar('criar', translate);
 	 * Array para armazenar as redes sociais.
 	 * @type {Array}
 	 */
-	let redesSociais = $state([]);
+let redesSociais = $state([]);
+const DEFAULT_TIMEZONE = 'Europe/Lisbon';
+let schedulingForm = $state(
+	/** @type {{ enabled: boolean; entries: Record<string, { horario: string; fuso_horario: string }> }} */ ({
+		enabled: false,
+		entries: {}
+	})
+);
+let fileInputRef;
+let isDragActive = $state(false);
 
  
 
@@ -98,7 +130,7 @@ configurePortalSidebar('criar', translate);
 	 * Array para armazenar as tags selecionadas.
 	 * @type {Array}
 	 */
-	let selectedTags = $state([]);
+let selectedTags = $state([]);
 
   /**
 	 * @type {any[]}
@@ -117,11 +149,21 @@ configurePortalSidebar('criar', translate);
 	 * Esta função é assíncrona para permitir a busca de dados.
 	 */
 	onMount(async () => {
-		redesSociais = await fetch('/ep/portal_noticias/redes').then(d => d.json())
+		redesSociais = await fetch('/ep/portal_noticias/redes')
+			.then((d) => d.json())
+			.then((lista) =>
+				(lista || []).map((rede) => ({
+					...rede,
+					checked: false,
+					customize: false
+				}))
+			);
 
 		categorias = await fetch('/ep/portal_noticias/categorias').then(d => d.json())
 
-		tags = await fetch('/ep/portal_noticias/tags').then(d => d.json())
+		tags = await fetch('/ep/portal_noticias/tags')
+			.then((d) => d.json())
+			.then((lista) => (Array.isArray(lista) ? lista : []));
 	
     pedidos = await fetch('/ep/portal_noticias/getJson').then(d => d.json())
 
@@ -192,6 +234,107 @@ configurePortalSidebar('criar', translate);
 			.map((redeSocial) => redeSocial.nome);
 	}
 
+	function getNetworkFieldKey(networkName) {
+		if (!networkName) return null;
+		const normalized = networkName.toLowerCase();
+		return NETWORK_FIELD_MAP[normalized] ?? null;
+	}
+
+	function getTextForNetwork(networkName) {
+		const fieldKey = getNetworkFieldKey(networkName);
+		const rede = redesSociais.find((r) => r.nome === networkName);
+		const customValue = fieldKey ? (formField[fieldKey] ?? '').trim() : '';
+
+		if (rede?.customize && customValue) {
+			return customValue;
+		}
+
+		return formField.descricao;
+	}
+
+function toggleScheduling() {
+	schedulingForm = {
+		...schedulingForm,
+		enabled: !schedulingForm.enabled
+	};
+	if (schedulingForm.enabled) {
+		syncSchedulingEntries();
+	} else {
+		schedulingForm.entries = {};
+	}
+}
+
+function syncSchedulingEntries() {
+	if (!schedulingForm.enabled) return;
+
+	const selected = getSelectedSocialNetworks();
+	/** @type {Record<string, { horario: string; fuso_horario: string }>} */
+	const nextEntries = {};
+
+	selected.forEach((rede) => {
+		const existing = schedulingForm.entries[rede.id_rede_social];
+		nextEntries[rede.id_rede_social] = {
+			horario: existing?.horario ?? '',
+			fuso_horario: existing?.fuso_horario ?? DEFAULT_TIMEZONE
+		};
+	});
+
+	schedulingForm.entries = nextEntries;
+}
+
+/**
+ * @param {string} redeId
+ * @param {'horario' | 'fuso_horario'} field
+ * @param {string} value
+ */
+function handleScheduleFieldChange(redeId, field, value) {
+	const current = schedulingForm.entries[redeId] ?? {
+		horario: '',
+		fuso_horario: DEFAULT_TIMEZONE
+	};
+
+	schedulingForm.entries = {
+		...schedulingForm.entries,
+		[redeId]: {
+			horario: field === 'horario' ? value : current.horario,
+			fuso_horario: field === 'fuso_horario' ? value : current.fuso_horario
+		}
+	};
+}
+
+	function toggleRedeSelection(redeSocial) {
+		if (redeSocial.nome === 'LinkedIn' || redeSocial.nome === 'Tiktok') {
+			alert(`${redeSocial.nome} fora de serviço`);
+			return;
+		}
+
+		redeSocial.checked = !redeSocial.checked;
+
+		if (!redeSocial.checked) {
+			redeSocial.customize = false;
+			const fieldKey = getNetworkFieldKey(redeSocial.nome);
+			if (fieldKey) {
+				formField[fieldKey] = '';
+			}
+		}
+
+	if (schedulingForm.enabled) {
+		syncSchedulingEntries();
+	}
+	}
+
+	function toggleRedeCustomization(redeSocial) {
+		if (!redeSocial.checked) return;
+		redeSocial.customize = !redeSocial.customize;
+		const fieldKey = getNetworkFieldKey(redeSocial.nome);
+		if (!redeSocial.customize && fieldKey) {
+			formField[fieldKey] = '';
+		}
+		if (redeSocial.customize && fieldKey && !formField[fieldKey]) {
+			formField[fieldKey] = formField.descricao;
+		}
+	}
+
 	function listarNoticias() {
 		goto('/noticias');
 	}
@@ -222,16 +365,41 @@ configurePortalSidebar('criar', translate);
     const descricao = formField.descricao;
     const estado = 'Pendente';
     const id_categoria_FK = formField.id_categoria_FK;
-    const texto_facebook = formField.texto_facebook;
-    const texto_instagram = formField.texto_instagram;
-    const texto_twitter = formField.texto_twitter;
-    const texto_linkedin = formField.texto_linkedin;
-    const texto_tiktok = formField.texto_tiktok;
     const id_pedido =  formField.id_pedido;
 
-    const redesSociais = getSelectedSocialNetworksNames();
+    const redesSelecionadasNomes = getSelectedSocialNetworksNames();
     const selectedSocialNetworks = getSelectedSocialNetworks();
     const tags = selectedTags;
+    const schedulingPayload = schedulingForm.enabled
+      ? selectedSocialNetworks
+          .map((rede) => {
+            const entry = schedulingForm.entries[rede.id_rede_social];
+            if (!entry?.horario) {
+              return null;
+            }
+
+            const parsedDate = new Date(entry.horario);
+            if (Number.isNaN(parsedDate.getTime())) {
+              return null;
+            }
+
+            return {
+              id_rede_social: rede.id_rede_social,
+              horario_agendado: parsedDate.toISOString(),
+              fuso_horario: entry.fuso_horario || DEFAULT_TIMEZONE,
+            };
+          })
+          .filter((item) => item !== null)
+      : [];
+
+    if (schedulingForm.enabled && schedulingPayload.length === 0) {
+      toastr.warning(
+        'Ativou o agendamento mas não preencheu nenhuma data/hora válida.',
+        'Agendamento incompleto',
+        { timeOut: 4000, progressBar: true }
+      );
+      return;
+    }
     if (isNaN(id_pedido)) {
       console.log("ID do pedido inválido. Selecione um pedido válido. 1");
    
@@ -284,21 +452,12 @@ configurePortalSidebar('criar', translate);
       formData.append('texto', descricao);
       formData.append('titulo', titulo);
       formData.append('estado', estado);
-      if (redesSociais.includes('Facebook') && texto_facebook !== '') {
-        formData.append('texto_facebook', texto_facebook);
-      }
-      if (redesSociais.includes('Instagram') && texto_instagram !== '') {
-        formData.append('texto_instagram', texto_instagram);
-      }
-      if (redesSociais.includes('Twitter') && texto_twitter !== '') {
-        formData.append('texto_twitter', texto_twitter);
-      }
-      if (redesSociais.includes('LinkedIn') && texto_linkedin !== '') {
-        formData.append('texto_linkedin', texto_linkedin);
-      }
-      if (redesSociais.includes('Tiktok') && texto_tiktok !== '') {
-        formData.append('texto_tiktok', texto_tiktok);
-      }
+
+      redesSelecionadasNomes.forEach((networkName) => {
+        const fieldKey = getNetworkFieldKey(networkName);
+        if (!fieldKey) return;
+        formData.append(fieldKey, getTextForNetwork(networkName));
+      });
 
   
       formData.append('id_pedido',  id_pedido);
@@ -316,17 +475,51 @@ configurePortalSidebar('criar', translate);
 
 
       // 5) POST noticia data
-      const id_noticia = await fetch('/ep/portal_noticias/dados', {
+      const noticiaResponse = await fetch('/ep/portal_noticias/dados', {
         method: 'POST',
         body: formData
       });
 
-      if (!id_noticia) {
-        console.error('Não foi possível obter a id_noticia para enviar os anexos.');
+      if (!noticiaResponse.ok) {
+        const errorBody = await noticiaResponse.json().catch(() => ({}));
+        throw new Error(errorBody?.message ?? 'Não foi possível criar a notícia.');
+      }
+
+      const noticiaResult = await noticiaResponse.json();
+      const noticiaId = noticiaResult?.id_noticia;
+
+      if (schedulingPayload.length > 0) {
+        if (!noticiaId) {
+          toastr.warning(
+            'Notícia criada, mas não foi possível associar o agendamento.',
+            'Aviso',
+            { timeOut: 4000, progressBar: true }
+          );
+        } else {
+          const scheduleResponse = await fetch('/ep/portal_noticias/redes/agendamentos', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              id_noticia: noticiaId,
+              agendamentos: schedulingPayload
+            })
+          });
+
+          if (!scheduleResponse.ok) {
+            toastr.warning(
+              'A notícia foi criada, mas o agendamento não foi guardado.',
+              'Aviso',
+              { timeOut: 4000, progressBar: true }
+            );
+          }
+        }
       }
 
       // 6) Clean up & success message
       anexos = [];
+      schedulingForm = { enabled: false, entries: {} };
       toastr.success(
         'Adicionou uma noticia com sucesso!',
         'SUCESSO!',
@@ -358,36 +551,39 @@ configurePortalSidebar('criar', translate);
 		}
 	}*/
 
-  function updateSelectedNetworks() {
-    // Reset all networks to unchecked
-    redesSociais.forEach(network => network.checked = false);
-
-    // Check which networks are selected in uploaded files
-    anexos.forEach(file => {
-      file.redes.forEach(networkName => {
-        let network = redesSociais.find(n => n.nome === networkName);
-        if (network) {
-          network.checked = true;
-        }
-      });
-    });
-  }
-
-
   function handleFileChange(event) {
-    const files = event.target.files;
-    anexos = [...anexos];
-
-    for (let i = 0; i < files.length; i++) {
-      const fileUrl = URL.createObjectURL(files[i]);
-      files[i].url = fileUrl;
-      files[i].redes = []; // Initialize empty social network selection
-      anexos.push(files[i]);
-    }
-
-    // Call the function to update selected networks
-    updateSelectedNetworks();
+    addFilesFromList(event.target.files);
+    event.target.value = '';
   }
+
+	function addFilesFromList(fileList) {
+		if (!fileList || fileList.length === 0) return;
+
+		const incoming = Array.from(fileList).map((file) => {
+			return Object.assign(file, {
+				url: URL.createObjectURL(file),
+				redes: file.redes ?? []
+			});
+		});
+
+		anexos = [...anexos, ...incoming];
+	}
+
+function handleDrop(event) {
+	if (event?.preventDefault) event.preventDefault();
+	addFilesFromList(event?.dataTransfer?.files ?? []);
+	isDragActive = false;
+}
+
+function handleDragOver(event) {
+	if (event?.preventDefault) event.preventDefault();
+	isDragActive = true;
+}
+
+function handleDragLeave(event) {
+	if (event?.preventDefault) event.preventDefault();
+	isDragActive = false;
+}
 
 
 
@@ -397,11 +593,6 @@ configurePortalSidebar('criar', translate);
     } else {
       file.redes.push(networkName);
     }
-
-    // Update the selected networks based on file changes
-    updateSelectedNetworks();
-
-
   }
 
 
@@ -602,15 +793,209 @@ configurePortalSidebar('criar', translate);
   resize: vertical; /* Allows manual resizing */
 }
 
-.char-counter {
-  font-size: 12px;
-  color: gray;
-  margin-bottom: 5px; /* Moves counter closer to input */
-  text-align: right; /* Aligns counter to the right */
-}
+	.char-counter {
+		font-size: 12px;
+		color: gray;
+		margin-bottom: 5px;
+		text-align: right;
+	}
 
+	.network-section-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 12px;
+	}
 
+	.network-section-hint {
+		font-size: 12px;
+		color: #7fa0b5;
+		margin: 4px 0 0;
+	}
 
+	.network-customization {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		margin-bottom: 24px;
+	}
+
+	.network-card {
+		border: 1px solid #dde3ea;
+		border-radius: 8px;
+		padding: 16px;
+		background: #fff;
+		transition: border-color 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.network-card.active {
+		border-color: #00a4e6;
+	}
+
+	.network-card-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 12px;
+	}
+
+	.network-meta {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.network-name {
+		font-weight: 600;
+		color: #29363d;
+	}
+
+	.network-status {
+		font-size: 11px;
+		text-transform: uppercase;
+		color: #7fa0b5;
+		letter-spacing: 0.04em;
+	}
+
+	.network-card-body {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.network-actions {
+		display: flex;
+		gap: 8px;
+	}
+
+	.network-textarea textarea {
+		min-height: 120px;
+	}
+
+	.file-upload-wrapper {
+		width: 100%;
+	}
+
+	.file-input-hidden {
+		display: none;
+	}
+
+	.file-drop-zone {
+		border: 2px dashed #cfd6dd;
+		border-radius: 8px;
+		padding: 32px;
+		text-align: center;
+		background: #f9fbfd;
+		color: #7fa0b5;
+		cursor: pointer;
+		transition: border-color 0.2s ease, background 0.2s ease;
+	}
+
+	.file-drop-zone:hover,
+	.file-drop-zone.active {
+		border-color: #c2c7d0;
+		background: #edf0f3;
+	}
+
+	.file-drop-zone-icon {
+		font-size: 32px;
+		color: #a0adba;
+		margin-bottom: 8px;
+	}
+
+	.file-drop-zone-title {
+		font-size: 18px;
+		font-weight: 600;
+		margin-bottom: 4px;
+		color: #6c7a88;
+	}
+
+	.file-drop-zone-subtitle {
+		font-size: 14px;
+		color: #9aa6b2;
+	}
+
+	.module-actions {
+		display: flex;
+		justify-content: flex-end;
+		margin-top: 12px;
+	}
+
+	.schedule-section {
+		border: 1px solid #dde3ea;
+		border-radius: 8px;
+		padding: 16px;
+		background: #fff;
+	}
+
+	.schedule-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.schedule-title {
+		font-weight: 600;
+		color: #29363d;
+	}
+
+	.schedule-hint {
+		font-size: 12px;
+		color: #7fa0b5;
+		margin: 4px 0 0;
+	}
+
+	.schedule-grid {
+		margin-top: 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.schedule-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		align-items: center;
+	}
+
+	.schedule-label {
+		min-width: 140px;
+		font-weight: 500;
+		color: #4b5c6b;
+	}
+
+	.schedule-inputs {
+		flex: 1;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: 8px;
+	}
+
+	.form-card {
+		background: #fff;
+		border: 1px solid #dce3ea;
+		border-radius: 6px;
+		box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+	}
+
+	.form-card-header {
+		background: #f4f5f7;
+		padding: 12px 20px;
+		font-size: 18px;
+		font-weight: 600;
+		color: #1f2a37;
+		border-bottom: 1px solid #dce3ea;
+		line-height: 1.2;
+	}
+
+	.form-card-body {
+		padding: 24px 24px 32px;
+	}
+
+	:global(.form-container .form-group label) {
+		color: #000;
+	}
 </style>
 
 <Breadcrum
@@ -619,6 +1004,9 @@ configurePortalSidebar('criar', translate);
 	menu_items={items_breadcrum}
 />
 <div class="container-fluid mt-4">
+	<div class="form-card">
+		<div class="form-card-header">Notícias: Nova notícia</div>
+		<div class="form-card-body">
   <form onsubmit={onHandleSubmit} class="form-container">
     <div class="row">
       <div class="col-md-6">
@@ -685,15 +1073,47 @@ configurePortalSidebar('criar', translate);
 
         <div class="form-group">
           <label for="fileInput">{$t('divPublicar.Anexos')}:</label>
-          <input
-            class="form-control file-input"
-            type="file"
-            id="fileInput"
-            name="fileInput"
-            placeholder={$t('divPublicar.inAnexos')}  
-            onchange={(event) => handleFileChange(event)}
-            multiple
-          />
+          <div class="file-upload-wrapper">
+            <input
+              class="file-input-hidden"
+              type="file"
+              id="fileInput"
+              name="fileInput"
+              bind:this={fileInputRef}
+              onchange={(event) => handleFileChange(event)}
+              multiple
+            />
+            <div
+              class={`file-drop-zone ${isDragActive ? 'active' : ''}`}
+              onclick={() => fileInputRef?.click()}
+              ondragover={handleDragOver}
+              ondragleave={handleDragLeave}
+              ondrop={handleDrop}
+              role="button"
+              tabindex="0"
+              aria-label={tf(
+               'divPublicar.dropTitle',
+                'Arraste e solte o ficheiro aqui',
+                'Drag and drop files here'
+              )}
+            >
+              <i class="fas fa-upload file-drop-zone-icon" aria-hidden="true"></i>
+              <p class="file-drop-zone-title">
+                {tf(
+                  'divPublicar.dropTitle',
+                  'Arraste e solte o ficheiro aqui',
+                  'Drag and drop files here'
+                )}
+              </p>
+              <span class="file-drop-zone-subtitle">
+                {tf(
+                  'divPublicar.dropSubtitle',
+                  'ou clique para procurar o ficheiro',
+                  'or click to browse files'
+                )}
+              </span>
+            </div>
+          </div>
   {#if anexos.length > 0}
     <div class="selected-files mt-3">
       <label for="fileInput" class="form-label">{$t('divPublicar.sAnexos')}:</label>
@@ -750,137 +1170,212 @@ configurePortalSidebar('criar', translate);
         </div>
       </div>
       
-      <div class="col-md-6 form-group" >
-        
-        <label for="Rs">{$t('divPublicar.rs')}:</label>
-
-        <div class="social-media-container" style="display: flex; flex-wrap: wrap;">
-          {#each redesSociais as redeSocial}
-            <div class="social-media-button m-2">
-              <button
-                class="btn btn-outline-primary"
-                class:active={redeSocial.checked}
-                type="button"
-                onclick={() => {
-                  if (redeSocial.nome === "LinkedIn" || redeSocial.nome === "Tiktok") {
-                    alert(`${redeSocial.nome} fora de serviço`);
-                  } else {
-                    redeSocial.checked = !redeSocial.checked;
-                  }
-                }}
-              >
-                {redeSocial.nome}
-              </button>
-            </div>
-          {/each}
+      <div class="col-md-6 form-group">
+        <div class="network-section-header">
+          <div>
+            <label>{$t('divPublicar.rs')}</label>
+            <p class="network-section-hint">
+              {tf(
+                'divPublicar.redesHint',
+                'Selecione as redes sociais e personalize apenas se precisar de textos diferentes.',
+                'Select the social networks to send and customize the ones that need different copy.'
+              )}
+            </p>
+          </div>
         </div>
-        <div class="form-group">
-          {#if redesSociais.some((redeSocial) => redeSocial.checked)}
-            <div class="form-group tags-input" style="margin-top: 20px;">
-              {#each redesSociais as redeSocial}
-                {#if redeSocial.checked}
-                  <div class="form-group">
+
+        <div class="network-customization">
+          {#each redesSociais as redeSocial}
+            <div class="network-card {redeSocial.checked ? 'active' : ''}">
+              <div class="network-card-header">
+                <div class="network-meta">
+                  <span class="network-name">{redeSocial.nome}</span>
+                  <span class="network-status">
+                    {#if redeSocial.checked}
+                      {redeSocial.customize
+                        ? tf(
+                            'divPublicar.statusCustom',
+                            'A usar conteúdo personalizado',
+                            'Using custom content'
+                          )
+                        : tf(
+                            'divPublicar.statusBase',
+                            'A usar o texto base',
+                            'Using base content'
+                          )}
+                    {:else}
+                      {tf(
+                        'divPublicar.statusInactive',
+                        'Rede não selecionada',
+                        'Network not selected'
+                      )}
+                    {/if}
+                  </span>
+                </div>
+                <label class="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={redeSocial.checked}
+                    onchange={() => toggleRedeSelection(redeSocial)}
+                  />
+                  <span class="slider round"></span>
+                </label>
+              </div>
+              <div class="network-card-body">
+                <div class="network-actions">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    disabled={!redeSocial.checked}
+                    onclick={() => toggleRedeCustomization(redeSocial)}
+                  >
+                    {redeSocial.customize
+                      ? tf('divPublicar.usarBaseBtn', 'Usar texto base', 'Use base text')
+                      : tf('divPublicar.personalizarBtn', 'Personalizar', 'Customize')}
+                  </button>
+                </div>
+                {#if redeSocial.checked && redeSocial.customize}
+                  <div class="form-group network-textarea">
                     <label for={`texto-${redeSocial.id}`}>
-                      {$t('divPublicar.textoPara')}
-                      {redeSocial.nome}:
+                      {$t('divPublicar.textoPara')} {redeSocial.nome}:
                     </label>
                     <textarea
                       class="form-control"
                       id={`texto-${redeSocial.id}`}
+                      placeholder={tf(
+                        'divPublicar.customPlaceholder',
+                        'Escreve o texto específico para esta rede...',
+                        'Write the specific copy for this network...'
+                      )}
                       bind:value={formField[`texto_${redeSocial.nome.toLowerCase()}`]}
                     ></textarea>
                   </div>
                 {/if}
-              {/each}
-              <label for="tagsInput">
-                {#if redesSociais.filter((redeSocial) => redeSocial.checked)}
-                  {$t('divPublicar.textoPara')}
-                  {#each redesSociais.filter((redeSocial) => redeSocial.checked) as redeSocial}
-                    {redeSocial.nome}
-                    {#if redesSociais.filter((redeSocial) => redeSocial.checked).length > 1}
-                      {#if redeSocial !== redesSociais.filter((redeSocial) => redeSocial.checked)[0]}
-                        {#if redeSocial !== redesSociais.filter((redeSocial) => redeSocial.checked)[redesSociais.filter((redeSocial) => redeSocial.checked).length - 1]}
-                          {', '}
-                        {/if}
-                      {/if}
-                    {/if}
-                  {/each}
-                {/if}
-              </label>
-              <div class="available-tags">
-                {#each tags.filter((tag) => tag.status === 'Ativo') as tag}
-                  <div
-                    class="tag {selectedTags.some(
-                      (selectedTag) => selectedTag.id_tag === tag.id_tag
-                    )
-                      ? 'selected'
-                      : ''}"
-                    class:selected={selectedTags.some(
-                      (selectedTag) => selectedTag.id_tag === tag.id_tag
-                    )}
-                    class:bordered={selectedTags.some(
-                      (selectedTag) => selectedTag.id_tag === tag.id_tag
-                    )}
-                  >
-                    <span
-                      role="button"
-                      aria-label={$t('divPublicar.selTag')}
-                      tabindex="0"
-                      onclick={() => handleSelectTag(tag)}
-                    >
-                      {tag.nome}
-                    </span>
-                    <span
-                      role="button"
-                      aria-label={$t('divPublicar.removerTag')}
-                      tabindex="0"
-                      class="remove-icon"
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveTag(tag);
-                      }}
-                    >
-                      x
-                    </span>
+              </div>
+            </div>
+          {/each}
+        </div>
+
+        <div class="schedule-section mt-4">
+          <div class="schedule-header">
+            <div>
+              <label class="schedule-title">Agendamento</label>
+              <p class="schedule-hint">
+                Ative para definir dia e hora específicos por rede social. Caso contrário, a publicação é imediata.
+              </p>
+            </div>
+            <label class="toggle-switch">
+              <input
+                type="checkbox"
+                checked={schedulingForm.enabled}
+                onchange={toggleScheduling}
+              />
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          {#if schedulingForm.enabled}
+            {#if getSelectedSocialNetworks().length === 0}
+              <p class="text-muted mb-0 small">
+                Seleccione pelo menos uma rede social para poder definir o agendamento.
+              </p>
+            {:else}
+              <div class="schedule-grid">
+                {#each getSelectedSocialNetworks() as rede}
+                  <div class="schedule-row">
+                    <div class="schedule-label">
+                      <span>{rede.nome}</span>
+                    </div>
+                    <div class="schedule-inputs">
+                      <input
+                        type="datetime-local"
+                        class="form-control"
+                        value={schedulingForm.entries[rede.id_rede_social]?.horario ?? ''}
+                        oninput={(event) =>
+                          handleScheduleFieldChange(rede.id_rede_social, 'horario', event.currentTarget.value)}
+                      />
+                      <select
+                        class="form-control"
+                        value={schedulingForm.entries[rede.id_rede_social]?.fuso_horario ?? DEFAULT_TIMEZONE}
+                        onchange={(event) =>
+                          handleScheduleFieldChange(rede.id_rede_social, 'fuso_horario', event.currentTarget.value)}
+                      >
+                        <option value="Europe/Lisbon">Europe/Lisbon</option>
+                        <option value="UTC">UTC</option>
+                      </select>
+                    </div>
                   </div>
                 {/each}
               </div>
-              <div class="tag-input" style="display: flex; align-items: center; gap: 10px;">
-                <input
-                  class="form-control"
-                  type="text"
-                  id="tagsInput"
-                  name="tagsInput"
-                  placeholder={$t('divPublicar.selTag')}
-                  bind:value={newTag}
-                />
-                <button
-                  type="button"
-                  class="btn btn-secondary custom-button"
-                  onclick={handleAddTag}
-                >
-                  <span class="icon">+</span>
-                  {$t('divPublicar.addTag')}
-                </button>
-              </div>
-            </div>
+            {/if}
           {/if}
         </div>
-        <div class="col-md-12 text-md-right">
+
+        <div class="form-group tags-input" style="margin-top: 20px;">
+          <label>{$t('divPublicar.tagsPara')}</label>
+          <div class="tags-selector">
+                <div class="available-tags">
+                  {#each tags.filter((tag) => tag.status === 'Ativo') as tag}
+                    <div
+                      class="tag {selectedTags.some(
+                          (selectedTag) => selectedTag.id_tag === tag.id_tag
+                        )
+                          ? 'selected'
+                          : ''}"
+                      class:selected={selectedTags.some(
+                        (selectedTag) => selectedTag.id_tag === tag.id_tag
+                      )}
+                      class:bordered={selectedTags.some(
+                        (selectedTag) => selectedTag.id_tag === tag.id_tag
+                      )}
+                    >
+                      <span
+                        role="button"
+                        aria-label={$t('divPublicar.selTag')}
+                        tabindex="0"
+                        onclick={() => handleSelectTag(tag)}
+                      >
+                        {tag.nome}
+                      </span>
+                    </div>
+                  {/each}
+                </div>
+          </div>
+          <div class="tag-input" style="display: flex; align-items: center; gap: 10px;">
+            <input
+              class="form-control"
+              type="text"
+              id="tagsInput"
+              name="tagsInput"
+              placeholder={$t('divPublicar.selTag')}
+              bind:value={newTag}
+            />
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary btn-module-secondary-operation"
+                  onclick={handleAddTag}
+                >
+                  <span class="icon mr-1">+</span>
+                  {$t('divPublicar.addTag')}
+                </button>
+          </div>
+        </div>
+
+        <div class="col-md-12 text-md-right module-actions">
           <button
             type="submit"
-            class="pn-submit-button"
+            class="btn btn-sm btn-primary btn-module-save"
             aria-label={$t('divPublicar.btSubmeter')}
           >
-            <span class="pn-submit-icon" aria-hidden="true">
-              <i class="fas fa-paper-plane"></i>
-            </span>
-            <span>{$t('divPublicar.btSubmeter')}</span>
+            <i class="fas fa-paper-plane mr-1"></i>
+            {$t('divPublicar.btSubmeter')}
           </button>
         </div>
       </div>
     </div>
   </form>
+		</div>
+	</div>
 </div>
  
 

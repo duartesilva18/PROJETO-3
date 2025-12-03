@@ -29,6 +29,15 @@ export class NoticiasService {
         pn_anexos: true,
         pn_noticia_Tag: true,
         pn_rs_noticia: true,
+        pn_agendamento_rede: {
+          select: {
+            id_agendamento: true,
+            id_rede_social: true,
+            horario_agendado: true,
+            fuso_horario: true,
+            status: true
+          }
+        },
         id_pedido: true,
         tipo: true
       }
@@ -78,6 +87,15 @@ export class NoticiasService {
         pn_anexos: true,
         pn_noticia_Tag: true,
         pn_rs_noticia: true,
+        pn_agendamento_rede: {
+          select: {
+            id_agendamento: true,
+            id_rede_social: true,
+            horario_agendado: true,
+            fuso_horario: true,
+            status: true
+          }
+        },
         id_pedido: true,
         tipo: true
       },

@@ -301,19 +301,41 @@ table#datatable-on .badge {
     }
 }
 
+.estado-pendente,
+.estado-publicado,
+.estado-rascunho,
+.estado-agendado {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 70px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
 .estado-pendente {
-    background-color: yellow; /* or #ffc107 if you want a Bootstrap-like yellow */
-    color: black;
-    padding: 2px 6px;
-    border-radius: 3px;
-  }
-  
-  .estado-publicado {
-    background-color: green;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 3px;
-  }
+    background-color: #ffe066;
+    color: #2e2e2e;
+}
+
+.estado-agendado {
+    background-color: #ffd699;
+    color: #5c431f;
+}
+
+.estado-publicado {
+    background-color: #33b679;
+    color: #fff;
+}
+
+.estado-rascunho {
+    background-color: #c9d1d9;
+    color: #1f2a37;
+}
   
   .toggle-switch {
     position: relative;

@@ -10,7 +10,8 @@ import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
-	import { get } from 'svelte/store';
+import { get } from 'svelte/store';
+import toastr from 'toastr';
 	import * as dt_pt from '$lib/translations/pt/datatables.json';
 	import * as dt_en from '$lib/translations/en/datatables.json';
 
@@ -18,6 +19,10 @@ import diacriticless from 'diacriticless';
 
 const translate = (key) => get(t)(key);
 configurePortalSidebar('dashboard', translate);
+
+const ESTADO_PENDENTE = 'Pendente';
+const ESTADO_PUBLICADO = 'Publicado';
+const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 
 	/** @type {RemoveModal} */
 	let removeModalBind = $state();
@@ -157,12 +162,21 @@ configurePortalSidebar('dashboard', translate);
 				});
 			}
 
-			filteredNoticias = filteredByKeyword.filter(
-				(noticia) =>
-					(formFilter.categoria === '' ||
-						noticia.pn_categoria.id_categoria === formFilter.categoria) &&
-					(formFilter.estado === '' || noticia.estado === formFilter.estado)
-			);
+			filteredNoticias = filteredByKeyword.filter((noticia) => {
+				const categoriaMatch =
+					formFilter.categoria === '' ||
+					noticia.pn_categoria?.id_categoria === formFilter.categoria;
+
+				const agendamentosCount = noticia.pn_agendamento_rede?.length ?? 0;
+				const estadoFilter = formFilter.estado;
+				const isAgendadoFilter = estadoFilter === AGENDADO_FILTER_VALUE;
+				const estadoMatch =
+					estadoFilter === '' ||
+					(!isAgendadoFilter && noticia.estado === estadoFilter) ||
+					(isAgendadoFilter && agendamentosCount > 0 && noticia.estado === ESTADO_PENDENTE);
+
+				return categoriaMatch && estadoMatch;
+			});
 
 			refreshTable();
 		} else {
@@ -175,9 +189,12 @@ configurePortalSidebar('dashboard', translate);
 				});
 			}
 
-			noticiasDatamedia = filteredRadioByKeyword.filter(
-				(noticia) => formFilter.estado === '' || noticia.estado === formFilter.estado
-			);
+			const estadoFilter = formFilter.estado;
+			noticiasDatamedia = filteredRadioByKeyword.filter((noticia) => {
+				if (estadoFilter === '') return true;
+				if (estadoFilter === AGENDADO_FILTER_VALUE) return false;
+				return noticia.estado === estadoFilter;
+			});
 
 			refreshRadioTable();
 		}
@@ -195,21 +212,37 @@ configurePortalSidebar('dashboard', translate);
 		{
 			title: $t('divNoticias.estado'),
 			width: '1%',
-			render: function (data, type, row, meta) {
-				const estado = row[1];
-				let estadoClass = '';
-				if (estado === 'Pendente') {
+			render: function (data, type, row) {
+				const estadoOriginal = (row[1] ?? '').toString();
+				const normalized = estadoOriginal.toLowerCase();
+				const hasAgendamento = Number(row[10]) > 0;
+				const isPending = normalized === 'pendente';
+				const isPublished = normalized === 'publicado';
+
+				let displayLabel = estadoOriginal || '—';
+				if (isPending && hasAgendamento) {
+					displayLabel = $t('divNoticias.agendado');
+				} else if (isPending) {
+					displayLabel = $t('divNoticias.pendente');
+				} else if (isPublished) {
+					displayLabel = $t('divNoticias.publicado');
+				}
+
+				let estadoClass = 'estado-rascunho';
+				if (isPending && hasAgendamento) {
+					estadoClass = 'estado-agendado';
+				} else if (isPending) {
 					estadoClass = 'estado-pendente';
-				} else if (estado === 'Publicado') {
+				} else if (isPublished) {
 					estadoClass = 'estado-publicado';
 				}
 
 				return `
-				<div class="d-flex justify-content-center">
-					<span class="estado ${estadoClass}">
-					${estado || 'null'}
-					</span>
-				</div>
+					<div class="d-flex justify-content-center">
+						<span class="estado ${estadoClass}">
+							${displayLabel}
+						</span>
+					</div>
 				`;
 			}
 		},
@@ -283,11 +316,16 @@ configurePortalSidebar('dashboard', translate);
 					: ''
 		},
 		{
+			title: 'Agendado',
+			visible: false,
+			searchable: false
+		},
+		{
 			title: '',
 			orderable: false,
 			width: '1%',
 			render: (data, type, row, meta) => {
-				if (row[1] === 'Pendente') {
+				if (row[1] === ESTADO_PENDENTE) {
 					return `
 					<div class="d-flex justify-content-center">
 						<button
@@ -315,7 +353,7 @@ configurePortalSidebar('dashboard', translate);
 			orderable: false,
 			width: '1%',
 			render: (data, type, row, meta) => {
-				if (row[1] === 'Pendente') {
+				if (row[1] === ESTADO_PENDENTE) {
 					return `
 					<div class="d-flex justify-content-center">
 						<button
@@ -337,6 +375,50 @@ configurePortalSidebar('dashboard', translate);
 					</button>
 				</div>`;
 			}
+		},
+		{
+			title: '',
+			orderable: false,
+			width: '1%',
+			render: (data, type, row, meta) => {
+				const isPending = row[1] === ESTADO_PENDENTE;
+				const hasSchedule = Number(row[10]) > 0;
+				const publishLabel = 'Publicar';
+				const agendadoLabel = $t('divNoticias.agendado');
+				if (isPending && !hasSchedule) {
+					return `
+					<div class="d-flex justify-content-center">
+						<button
+							data-rowindex="${meta.row}"
+							class="btn btn-sm btn-outline-success table_button_publish_noticia"
+						>
+							<i class="fa fa-share-alt mr-1"></i> ${publishLabel}
+						</button>
+					</div>`;
+				}
+				if (isPending && hasSchedule) {
+					return `
+					<div class="d-flex justify-content-center">
+						<button
+							data-rowindex="${meta.row}"
+							class="btn btn-sm btn-outline-secondary table_button_publish_noticia disabled"
+							title="Esta notícia já possui agendamentos"
+							style="cursor: not-allowed; opacity: 0.6;"
+						>
+							<i class="fa fa-clock mr-1"></i> ${agendadoLabel}
+						</button>
+					</div>`;
+				}
+				return `
+				<div class="d-flex justify-content-center">
+					<button
+						class="btn btn-sm btn-outline-secondary table_button_publish_noticia disabled"
+						style="cursor: not-allowed; opacity: 0.4;"
+					>
+						<i class="fa fa-share-alt mr-1"></i> Publicar
+					</button>
+				</div>`;
+			}
 		}
 	];
 
@@ -349,10 +431,10 @@ configurePortalSidebar('dashboard', translate);
 				let estado = row[1];
 				let estadoClass = '';
 
-				if (estado === 'Pendente') {
+				if (estado === ESTADO_PENDENTE) {
 					estadoClass = 'estado-pendente';
 					estado = 'Rascunho';
-				} else if (estado === 'Publicado') {
+				} else if (estado === ESTADO_PUBLICADO) {
 					estadoClass = 'estado-publicado';
 				}
 
@@ -521,17 +603,19 @@ configurePortalSidebar('dashboard', translate);
 		table.clear();
 
 		filteredNoticias.forEach((noticia, index) => {
+			const hasAgendamento = (noticia.pn_agendamento_rede?.length ?? 0) > 0;
 			const rowData = [
 				`<div class="clickable-cell" data-rowindex="${index}">${noticia.titulo}</div>`,
 				noticia.estado,
 				formatDate(noticia.data_criacao),
-				noticia.pn_categoria.nome,
+				noticia.pn_categoria?.nome ?? '-',
 				noticia.pn_anexos ?? [],
 				noticia.texto_facebook,
 				noticia.texto_instagram,
 				noticia.texto_linkedin,
 				noticia.texto_twitter,
-				noticia.texto_tiktok
+				noticia.texto_tiktok,
+				hasAgendamento ? 1 : 0
 			];
 
 			table.row.add(rowData).node();
@@ -559,6 +643,17 @@ configurePortalSidebar('dashboard', translate);
 				const rowIndex = jQuery(this).data('rowindex');
 				const noticia = filteredNoticias[rowIndex];
 				handleSelect(noticia);
+			});
+
+		jQuery(document)
+			.off('click', '.table_button_publish_noticia')
+			.on('click', '.table_button_publish_noticia', function () {
+				const rowIndex = jQuery(this).data('rowindex');
+				const noticia = filteredNoticias[rowIndex];
+				if (!noticia || noticia.estado !== ESTADO_PENDENTE) {
+					return;
+				}
+				publishNoticiaDirect(noticia, this);
 			});
 
 		jQuery(document)
@@ -657,6 +752,63 @@ otíciasDatamedia.forEach((noticia, index) => {
 			function: createNoticia
 		}
 	]);
+
+	async function publishNoticiaDirect(noticia, buttonEl) {
+		if (!noticia?.id_noticia) {
+			return;
+		}
+
+		let originalHTML = '';
+		if (buttonEl) {
+			originalHTML = buttonEl.innerHTML;
+			buttonEl.disabled = true;
+			buttonEl.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>`;
+		}
+
+		try {
+			const response = await fetch('/ep/portal_noticias/redes/post/publicar', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ id_noticia: noticia.id_noticia })
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data?.message ?? 'Erro ao publicar a notícia.');
+			}
+
+			const successes =
+				data.results?.filter((result) => result.status === 'success').map((result) => result.rede) ?? [];
+			const failures =
+				data.results?.filter((result) => result.status === 'error').map((result) => result.rede) ?? [];
+
+			if (successes.length > 0) {
+				toastr.success(
+					`Publicado em: ${successes.join(', ')}`,
+					'Notícia publicada'
+				);
+			}
+
+			if (failures.length > 0) {
+				toastr.warning(
+					`Falhou em: ${failures.join(', ')}`,
+					'Algumas redes falharam'
+				);
+			}
+		} catch (error) {
+			console.error(error);
+			toastr.error(error?.message ?? 'Erro ao publicar a notícia.', 'Falha');
+		} finally {
+			if (buttonEl) {
+				buttonEl.disabled = false;
+				buttonEl.innerHTML = originalHTML;
+			}
+			await onDeleteRow();
+		}
+	}
 </script>
 
 <Breadcrum
@@ -697,12 +849,12 @@ otíciasDatamedia.forEach((noticia, index) => {
 						class="form-control"
 					>
 						<option value="">{ $t('divNoticias.todos') }</option>
-						<option value={$t('divNoticias.pendente')}>
+						<option value={ESTADO_PENDENTE}>
 							{ !isToggled ? $t('divNoticias.pendente') : 'Rascunho' }
 						</option>
-						<option value={$t('divNoticias.publicado')}>{ $t('divNoticias.publicado') }</option>
+						<option value={ESTADO_PUBLICADO}>{ $t('divNoticias.publicado') }</option>
 						{#if !isToggled}
-							<option value={$t('divNoticias.agendado')}>{ $t('divNoticias.agendado') }</option>
+							<option value={AGENDADO_FILTER_VALUE}>{ $t('divNoticias.agendado') }</option>
 						{/if}
 					</select>
 				</div>

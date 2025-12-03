@@ -273,6 +273,7 @@ model pn_noticia {
   pn_categoria    pn_categoria?    @relation(fields: [id_categoria_FK], references: [id_categoria], onDelete: NoAction, onUpdate: NoAction, map: "FK__pn_notici__id_ca__7D439ABD")
   pn_noticia_Tag  pn_noticia_Tag[]
   pn_rs_noticia   pn_rs_noticia[]
+  pn_agendamento_rede pn_agendamento_rede[]
 
   @@schema("dbo")
 }
@@ -300,6 +301,7 @@ model pn_redes_sociais {
   id_rede_social String          @id(map: "PK__pn_redes__7BCAAC39FF4FAB43") @default(dbgenerated("newid()"), map: "DF__pn_redes___id_re__70DDC3D8") @db.UniqueIdentifier
   nome           String          @db.VarChar(255)
   pn_rs_noticia  pn_rs_noticia[]
+  pn_agendamento_rede pn_agendamento_rede[]
 
   @@schema("dbo")
 }
@@ -311,6 +313,25 @@ model pn_rs_noticia {
   pn_redes_sociais  pn_redes_sociais @relation(fields: [id_rede_social_FK], references: [id_rede_social], onUpdate: NoAction, map: "FK__pn_rs_not__id_re__02084FDA")
 
   @@id([id_rede_social_FK, id_noticia_FK], map: "PK__pn_rs_no__975B4F0D81DEAF49")
+  @@schema("dbo")
+}
+
+model pn_agendamento_rede {
+  id_agendamento   String          @id(map: "PK__pn_agend__3214EC2799999999") @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  id_noticia       String          @db.UniqueIdentifier
+  id_rede_social   String          @db.UniqueIdentifier
+  horario_agendado DateTime        @db.DateTime
+  fuso_horario     String          @default("Europe/Lisbon") @db.VarChar(64)
+  status           String          @default("pendente") @db.VarChar(20)
+  tentativas       Int             @default(0)
+  ultima_execucao  DateTime?       @db.DateTime
+  mensagem_erro    String?         @db.NVarChar(1000)
+  data_criacao     DateTime        @default(now()) @db.DateTime
+  data_atualizacao DateTime        @default(now()) @updatedAt @db.DateTime
+  pn_noticia       pn_noticia      @relation(fields: [id_noticia], references: [id_noticia], onDelete: Cascade, onUpdate: NoAction, map: "FK__pn_agend__id_no__09090909")
+  pn_redes_sociais pn_redes_sociais @relation(fields: [id_rede_social], references: [id_rede_social], onDelete: Cascade, onUpdate: NoAction, map: "FK__pn_agend__id_re__08080808")
+
+  @@unique([id_noticia, id_rede_social], map: "UQ__pn_agendamento_rede")
   @@schema("dbo")
 }
 

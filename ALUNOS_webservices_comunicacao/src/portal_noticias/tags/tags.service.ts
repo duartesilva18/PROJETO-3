@@ -82,11 +82,19 @@ export class TagsService {
       };
     }
 
+    const data: { nome?: string; status?: string } = {};
+    if (dto.nome) {
+      data.nome = dto.nome;
+    }
+    if (dto.status) {
+      data.status = dto.status;
+    } else if (tagExist.status && tagExist.status.toLowerCase() !== 'ativo') {
+      data.status = 'Ativo';
+    }
+
     try {
       return await this.prisma.pn_tag.update({
-        data: {
-          nome: dto.nome,
-        },
+        data,
         where: {
           id_tag: id,
         }

@@ -318,6 +318,29 @@
 		}
 	}
 }
+
+function redeEstaAgendada(redeId) {
+	return (noticiaSelecionada?.pn_agendamento_rede ?? []).some(
+		(agendamento) => agendamento.id_rede_social === redeId
+	);
+}
+
+function getAgendamentoDetalhe(redeId) {
+	return (noticiaSelecionada?.pn_agendamento_rede ?? []).find(
+		(agendamento) => agendamento.id_rede_social === redeId
+	);
+}
+
+function formatAgendamentoLabel(agendamento) {
+	if (!agendamento?.horario_agendado) return '';
+	const parsed = new Date(agendamento.horario_agendado);
+	if (Number.isNaN(parsed.getTime())) return '';
+
+	const data = parsed.toLocaleDateString('pt-PT');
+	const hora = parsed.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+	const fuso = agendamento.fuso_horario ?? 'UTC';
+	return `${data} ${hora} (${fuso})`;
+}
 </script>
 
 
@@ -326,35 +349,48 @@
 	<div style="margin-bottom: 10px; font-weight: bold;">
 		A notícia vai ser publicada nas seguintes redes sociais:
 	</div>
-	<ul style="list-style-type: none; padding: 0;">
+	<ul class="publish-networks">
 		{#each noticiaSelecionada.pn_rs_noticia as socialMedia}
-			<li style="margin-bottom: 10px; display: flex; align-items: center;">
+			{@const redeInfo = getNomeRedeSocialById(socialMedia.id_rede_social_FK)}
+			{@const definidaComoAgendada = redeEstaAgendada(socialMedia.id_rede_social_FK)}
+			{@const detalheAgendamento = getAgendamentoDetalhe(socialMedia.id_rede_social_FK)}
+			<li class={`publish-network ${definidaComoAgendada ? 'is-scheduled' : 'is-available'}`}>
 				<input
 					type="checkbox"
 					bind:group={selectedRedesSociais}
-					value={getNomeRedeSocialById(socialMedia.id_rede_social_FK).nome}
-					checked={selectedRedesSociais.includes(
-						getNomeRedeSocialById(socialMedia.id_rede_social_FK).nome
-					)}
-					disabled={successStates[getNomeRedeSocialById(socialMedia.id_rede_social_FK).nome] || (getNomeRedeSocialById(socialMedia.id_rede_social_FK).nome === 'Instagram' && !hasImages)}
-					style="margin-right: 10px;"
+					value={redeInfo.nome}
+					checked={selectedRedesSociais.includes(redeInfo.nome)}
+					disabled={successStates[redeInfo.nome] || (redeInfo.nome === 'Instagram' && !hasImages)}
 				/>
-				{getNomeRedeSocialById(socialMedia.id_rede_social_FK).nome}
-				{#if getNomeRedeSocialById(socialMedia.id_rede_social_FK).nome === 'Instagram' && !hasImages && !hasVideos}
-					<span style="color: red; margin-left: 10px;">(Publicação no Instagram disponível apenas para notícias com imagens anexadas)</span>
-				{/if}
-				{#if loadingStates[getNomeRedeSocialById(socialMedia.id_rede_social_FK).nome]}
-					<span class="loader" style="margin-left: 10px;">
+				<div class="network-details">
+					<div class="network-title">
+						{redeInfo.nome}
+						{#if redeInfo.nome === 'Instagram' && !hasImages && !hasVideos}
+							<span class="warn-label">
+								(Publicação no Instagram disponível apenas para notícias com imagens)
+							</span>
+						{/if}
+					</div>
+					{#if definidaComoAgendada}
+						<p class="schedule-badge">
+							Agendado para {formatAgendamentoLabel(detalheAgendamento)}
+						</p>
+					{:else}
+						<p class="schedule-badge available">Sem agendamento definido</p>
+					{/if}
+				</div>
+				{#if loadingStates[redeInfo.nome]}
+					<span class="loader ml-2">
 						<span>.</span>
 						<span>.</span>
 						<span>.</span>
 					</span>
-				{:else if successStates[getNomeRedeSocialById(socialMedia.id_rede_social_FK).nome]}
-					<span class="estado success" style="margin-left: 10px;">
+				{:else if successStates[redeInfo.nome]}
+					<span class="estado success ml-2">
 						✔ Sucesso
 					</span>
-				{:else if errorStates[getNomeRedeSocialById(socialMedia.id_rede_social_FK).nome]}
-					<span class="estado error" style="margin-left: 10px;">
+				{:else if errorStates[redeInfo.nome]}
+					<span class="estado error ml-2">
 						✖ Erro no pedido, contactar suporte
 					</span>
 				{/if}
@@ -394,6 +430,67 @@
 		display: inline-block;
 		font-size: 20px;
 		line-height: 1;
+	}
+
+	.publish-networks {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.publish-network {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 8px 12px;
+		border: 1px solid #e0e6ed;
+		border-radius: 6px;
+		background: #fff;
+	}
+
+	.publish-network.is-available {
+		border-color: #bcdcc7;
+	}
+
+	.publish-network.is-scheduled {
+		border-color: #f2c97d;
+		background: #fff8ed;
+	}
+
+	.publish-network input[type='checkbox'] {
+		margin: 0;
+	}
+
+	.network-details {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+	}
+
+	.network-title {
+		font-weight: 600;
+		color: #29363d;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.warn-label {
+		color: #c4332b;
+		font-size: 12px;
+	}
+
+	.schedule-badge {
+		font-size: 12px;
+		color: #6c757d;
+		margin: 4px 0 0;
+	}
+
+	.schedule-badge.available {
+		color: #3c8b5f;
 	}
 
 	@keyframes blink {

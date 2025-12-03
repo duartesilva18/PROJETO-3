@@ -18,4 +18,13 @@ export class TagDto {
     @IsString()
     nome: string;
 
+    @ApiProperty({
+        description: 'Estado da tag',
+        example: 'Ativo',
+        required: false
+    })
+    @IsOptional()
+    @IsString()
+    status?: string;
+
 }
