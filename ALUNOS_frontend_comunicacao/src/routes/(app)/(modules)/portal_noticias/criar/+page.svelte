@@ -7,6 +7,7 @@ import SuccesModal from '../noticia/[id]/modals/SuccesModal.svelte';
 import { configurePortalSidebar } from '../sidebar.config.js';
 import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 import { get } from 'svelte/store';
+import toastr from 'toastr';
 
 
 	
@@ -77,6 +78,8 @@ let schedulingForm = $state(
 );
 let fileInputRef;
 let isDragActive = $state(false);
+
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'video/mp4']);
 
  
 
@@ -282,6 +285,31 @@ function syncSchedulingEntries() {
 	schedulingForm.entries = nextEntries;
 }
 
+function copyScheduleToAll(sourceRedeId) {
+	if (!schedulingForm.enabled) return;
+	const source = schedulingForm.entries[sourceRedeId];
+	if (!source?.horario) {
+		toastr.warning('Defina primeiro a data/hora nesta rede para poder copiar.', 'Agendamento', {
+			timeOut: 3000,
+			progressBar: true
+		});
+		return;
+	}
+
+	const selected = getSelectedSocialNetworks();
+	selected.forEach((rede) => {
+		if (rede.id_rede_social === sourceRedeId) return;
+		const current = schedulingForm.entries[rede.id_rede_social] ?? {
+			horario: '',
+			fuso_horario: DEFAULT_TIMEZONE
+		};
+		schedulingForm.entries[rede.id_rede_social] = {
+			horario: source.horario,
+			fuso_horario: current.fuso_horario || source.fuso_horario || DEFAULT_TIMEZONE
+		};
+	});
+}
+
 /**
  * @param {string} redeId
  * @param {'horario' | 'fuso_horario'} field
@@ -336,7 +364,7 @@ function handleScheduleFieldChange(redeId, field, value) {
 	}
 
 	function listarNoticias() {
-		goto('/noticias');
+		goto('/portal_noticias');
 	}
 
 	function getCodeRedeSocial(redes) {
@@ -559,12 +587,29 @@ function handleScheduleFieldChange(redeId, field, value) {
 	function addFilesFromList(fileList) {
 		if (!fileList || fileList.length === 0) return;
 
-		const incoming = Array.from(fileList).map((file) => {
-			return Object.assign(file, {
+		const filesArray = Array.from(fileList);
+
+		const invalidFiles = filesArray.filter(
+			(file) => !ALLOWED_MIME_TYPES.has(file.type)
+		);
+
+		if (invalidFiles.length > 0) {
+			const names = invalidFiles.map((f) => f.name).join(', ');
+			toastr.warning(
+				`Ficheiro(s) não suportado(s): ${names}. Use apenas JPG, PNG, GIF ou MP4.`,
+				'Anexos',
+				{ timeOut: 5000, progressBar: true }
+			);
+		}
+
+		const validFiles = filesArray.filter((file) => ALLOWED_MIME_TYPES.has(file.type));
+
+		const incoming = validFiles.map((file) =>
+			Object.assign(file, {
 				url: URL.createObjectURL(file),
 				redes: file.redes ?? []
-			});
-		});
+			})
+		);
 
 		anexos = [...anexos, ...incoming];
 	}
@@ -800,6 +845,25 @@ function handleDragLeave(event) {
 		text-align: right;
 	}
 
+	.file-body {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.file-preview {
+		display: inline-flex;
+		justify-content: flex-start;
+	}
+
+	.file-preview-image {
+		max-width: 160px;
+		max-height: 120px;
+		object-fit: cover;
+		border-radius: 4px;
+		border: 1px solid #dde3ea;
+	}
+
 	.network-section-header {
 		display: flex;
 		justify-content: space-between;
@@ -912,6 +976,12 @@ function handleDragLeave(event) {
 	.file-drop-zone-subtitle {
 		font-size: 14px;
 		color: #9aa6b2;
+	}
+
+	.file-drop-zone-helper {
+		font-size: 12px;
+		color: #7fa0b5;
+		margin-top: 6px;
 	}
 
 	.module-actions {
@@ -1112,6 +1182,13 @@ function handleDragLeave(event) {
                   'or click to browse files'
                 )}
               </span>
+			  <p class="file-drop-zone-helper">
+				{tf(
+					'divPublicar.fileTypesHint',
+					'Ficheiros aceites: imagens JPG, PNG, GIF e vídeos MP4. Outros formatos podem não ser suportados nas redes sociais.',
+					'Accepted files: JPG, PNG, GIF images and MP4 videos. Other formats may not be supported by social networks.'
+				)}
+			  </p>
             </div>
           </div>
   {#if anexos.length > 0}
@@ -1134,32 +1211,39 @@ function handleDragLeave(event) {
             </button>
           </div>
 
-          <!-- Social Networks (Now Below) -->
-          <div class="file-networks">
-            {#each ['Instagram', 'Facebook', 'Twitter', 'LinkedIn', 'Tiktok'] as network}
-              <label>
-                <input
-                  type="checkbox"
-                  checked={file.redes.includes(network)}
-                  onchange={(event) => {
-                    if (network === "LinkedIn" || network === "Tiktok") {
-                      alert(`${network} fora de serviço`);
-                      event.target.checked = false; // Garante que não fica selecionado
-                      return;
-                    }
-              
-                    const [canToggle, message] = checkifcanornot(file, network);
-                    if (canToggle) {
-                      toggleFileNetwork(file, network);
-                    } else {
-                      event.target.checked = file.redes.includes(network); // Mantém o estado correto
-                      alert(message);
-                    }
-                  }}
-                />
-                {network}
-              </label>
-            {/each}
+          <!-- Preview + Social Networks -->
+          <div class="file-body">
+            {#if file.type && file.type.startsWith('image/')}
+              <div class="file-preview">
+                <img src={file.url} alt={file.name} class="file-preview-image" />
+              </div>
+            {/if}
+            <div class="file-networks">
+              {#each ['Instagram', 'Facebook', 'Twitter', 'LinkedIn', 'Tiktok'] as network}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={file.redes.includes(network)}
+                    onchange={(event) => {
+                      if (network === "LinkedIn" || network === "Tiktok") {
+                        alert(`${network} fora de serviço`);
+                        event.target.checked = false; // Garante que não fica selecionado
+                        return;
+                      }
+                
+                      const [canToggle, message] = checkifcanornot(file, network);
+                      if (canToggle) {
+                        toggleFileNetwork(file, network);
+                      } else {
+                        event.target.checked = file.redes.includes(network); // Mantém o estado correto
+                        alert(message);
+                      }
+                    }}
+                  />
+                  {network}
+                </label>
+              {/each}
+            </div>
           </div>
         </div>
       {/each}
@@ -1303,6 +1387,13 @@ function handleDragLeave(event) {
                         <option value="Europe/Lisbon">Europe/Lisbon</option>
                         <option value="UTC">UTC</option>
                       </select>
+			                      <button
+			                        type="button"
+			                        class="btn btn-sm btn-outline-secondary"
+			                        onclick={() => copyScheduleToAll(rede.id_rede_social)}
+			                      >
+			                        Aplicar a outras redes
+			                      </button>
                     </div>
                   </div>
                 {/each}

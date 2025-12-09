@@ -6,6 +6,7 @@ import { t } from '$lib/translations/translations';
 	import SuccesModal from '../../noticia/[id]/modals/SuccesModal.svelte';
 import { page } from '$app/stores';
 import { get } from 'svelte/store';
+import toastr from 'toastr';
 import { configurePortalSidebar } from '../../sidebar.config.js';
 import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 
@@ -50,13 +51,27 @@ configurePortalSidebar('dashboard', translate);
 	let showModal = $state(false);
 	let modalMessage = $state('');
 	let code = $state([]);
+let fileInputRef;
+let isDragActive = $state(false);
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'video/mp4']);
+const DEFAULT_TIMEZONE = 'Europe/Lisbon';
+let agendamentos = $state([]);
+let agendamentosLoading = $state(false);
+let agendamentosError = $state('');
+let showScheduleModal = $state(false);
+let newSchedule = $state({
+	id_rede_social: '',
+	horario_local: '',
+	fuso_horario: DEFAULT_TIMEZONE
+});
+let confirmDelete = $state({ open: false, target: null });
 
 	onMount(async () => {
-		const noticia = await fetch(`/ep/portal_noticias/noticia?id=${noticiaId}`).then(d => d.json())
-		categorias = await fetch('/ep/portal_noticias/categorias').then(d => d.json())
-		pedidos = await fetch('/ep/portal_noticias/getJson').then(d => d.json())
+		const noticia = await fetch(`/ep/portal_noticias/noticia?id=${noticiaId}`).then((d) => d.json());
+		categorias = await fetch('/ep/portal_noticias/categorias').then((d) => d.json());
+		pedidos = await fetch('/ep/portal_noticias/getJson').then((d) => d.json());
 
-		redesSociais = await fetch('/ep/portal_noticias/redes').then(d => d.json())
+		redesSociais = await fetch('/ep/portal_noticias/redes').then((d) => d.json());
 		console.log('id_pedido ; ', noticia.id_pedido);
 		formField = {
 			titulo: noticia.titulo,
@@ -85,7 +100,7 @@ configurePortalSidebar('dashboard', translate);
 			redeSocial.checked = formField[`texto_${redeSocial.nome.toLowerCase()}`] != null;
 		});
 
-		tags = await fetch('/ep/portal_noticias/tags').then(d => d.json())
+		tags = await fetch('/ep/portal_noticias/tags').then((d) => d.json());
 
 		tags.forEach((tag) => {
 			formField.tags.forEach((tagNoticia) => {
@@ -95,7 +110,7 @@ configurePortalSidebar('dashboard', translate);
 			});
 		});
 
-		updatedAnexos = formField.anexos.map(file => {
+		updatedAnexos = formField.anexos.map((file) => {
 			// Converte o code_rede_social para um array de caracteres
 			let codeArray = file.code_rede_social.split('');
 
@@ -113,7 +128,9 @@ configurePortalSidebar('dashboard', translate);
 
 		updateSelectedNetworks(); // Auto-update selected networks
 		// Agora cada file em updatedAnexos terá a propriedade "redes" corretamente atribuída.
-		console.log("updatedAnexos 1 :", updatedAnexos);
+		console.log('updatedAnexos 1 :', updatedAnexos);
+
+		await loadAgendamentos();
 
 		// Remove the old key from each object
 		//updatedAnexos.forEach((anexo) => delete anexo.caminho_ficheiro);
@@ -213,6 +230,205 @@ configurePortalSidebar('dashboard', translate);
 		return [true, aux]; // Retorna o tipo de arquivo, caso necessário
 	}
 
+	async function loadAgendamentos() {
+		agendamentosLoading = true;
+		agendamentosError = '';
+		try {
+			const response = await fetch(`/ep/portal_noticias/redes/agendamentos?id_noticia=${noticiaId}`);
+			if (!response.ok) {
+				throw new Error('Não foi possível carregar os agendamentos.');
+			}
+			const data = await response.json();
+			agendamentos = Array.isArray(data) ? data : [];
+		} catch (error) {
+			console.error('Erro ao carregar agendamentos:', error);
+			agendamentosError = 'Não foi possível carregar os agendamentos desta notícia.';
+		} finally {
+			agendamentosLoading = false;
+		}
+	}
+
+	function toLocalInputValue(isoString) {
+		if (!isoString) return '';
+		const date = new Date(isoString);
+		if (Number.isNaN(date.getTime())) return '';
+		const pad = (n) => String(n).padStart(2, '0');
+		const year = date.getFullYear();
+		const month = pad(date.getMonth() + 1);
+		const day = pad(date.getDate());
+		const hours = pad(date.getHours());
+		const minutes = pad(date.getMinutes());
+		return `${year}-${month}-${day}T${hours}:${minutes}`;
+	}
+
+	function toIsoFromLocal(localValue) {
+		if (!localValue) return null;
+		const date = new Date(localValue);
+		if (Number.isNaN(date.getTime())) return null;
+		return date.toISOString();
+	}
+
+	async function handleUpdateAgendamento(agendamento) {
+		const isoDate = toIsoFromLocal(agendamento.horario_agendado);
+		if (!isoDate) {
+			toastr.warning('Data/hora inválida para o agendamento.', 'Agendamento', {
+				timeOut: 4000,
+				progressBar: true
+			});
+			return;
+		}
+
+		try {
+			const response = await fetch(
+				`/ep/portal_noticias/redes/agendamentos/${agendamento.id_agendamento}`,
+				{
+					method: 'PUT',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						horario_agendado: isoDate,
+						fuso_horario: agendamento.fuso_horario || DEFAULT_TIMEZONE,
+						status: agendamento.status || 'pendente'
+					})
+				}
+			);
+
+			if (!response.ok) {
+				const body = await response.json().catch(() => ({}));
+				throw new Error(body?.message ?? 'Erro ao atualizar agendamento.');
+			}
+
+			toastr.success('Agendamento atualizado com sucesso.', 'Agendamento', {
+				timeOut: 4000,
+				progressBar: true
+			});
+			await loadAgendamentos();
+		} catch (error) {
+			console.error('Erro ao atualizar agendamento:', error);
+			toastr.error('Não foi possível atualizar o agendamento.', 'Agendamento', {
+				timeOut: 5000,
+				progressBar: true
+			});
+		}
+	}
+
+	async function handleDeleteAgendamento(agendamento) {
+		try {
+			const response = await fetch(
+				`/ep/portal_noticias/redes/agendamentos/${agendamento.id_agendamento}`,
+				{
+					method: 'DELETE'
+				}
+			);
+
+			if (!response.ok) {
+				const body = await response.json().catch(() => ({}));
+				throw new Error(body?.message ?? 'Erro ao remover agendamento.');
+			}
+
+			toastr.success('Agendamento removido com sucesso.', 'Agendamento', {
+				timeOut: 4000,
+				progressBar: true
+			});
+			agendamentos = agendamentos.filter(
+				(a) => a.id_agendamento !== agendamento.id_agendamento
+			);
+		} catch (error) {
+			console.error('Erro ao remover agendamento:', error);
+			toastr.error('Não foi possível remover o agendamento.', 'Agendamento', {
+				timeOut: 5000,
+				progressBar: true
+			});
+		}
+	}
+
+	function openNewScheduleModal() {
+		const selectedNetworks = redesSociais.filter((rede) => rede.checked);
+		if (selectedNetworks.length === 0) {
+			toastr.warning(
+				'Selecione pelo menos uma rede social antes de criar um agendamento.',
+				'Agendamento',
+				{ timeOut: 4000, progressBar: true }
+			);
+			return;
+		}
+		const firstNetwork = selectedNetworks[0];
+		newSchedule = {
+			id_rede_social: firstNetwork?.id_rede_social ?? '',
+			horario_local: '',
+			fuso_horario: DEFAULT_TIMEZONE
+		};
+		showScheduleModal = true;
+	}
+
+	function closeNewScheduleModal() {
+		showScheduleModal = false;
+	}
+
+	async function handleCreateAgendamento() {
+		const iso = toIsoFromLocal(newSchedule.horario_local);
+		if (!newSchedule.id_rede_social || !iso) {
+			toastr.warning('Seleccione a rede e uma data/hora válida.', 'Agendamento', {
+				timeOut: 4000,
+				progressBar: true
+			});
+			return;
+		}
+
+		try {
+			const response = await fetch('/ep/portal_noticias/redes/agendamentos', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					id_noticia: noticiaId,
+					agendamentos: [
+						{
+							id_rede_social: newSchedule.id_rede_social,
+							horario_agendado: iso,
+							fuso_horario: newSchedule.fuso_horario || DEFAULT_TIMEZONE,
+							status: 'pendente'
+						}
+					]
+				})
+			});
+
+			if (!response.ok) {
+				const body = await response.json().catch(() => ({}));
+				throw new Error(body?.message ?? 'Erro ao criar agendamento.');
+			}
+
+			toastr.success('Agendamento criado com sucesso.', 'Agendamento', {
+				timeOut: 4000,
+				progressBar: true
+			});
+			showScheduleModal = false;
+			await loadAgendamentos();
+		} catch (error) {
+			console.error('Erro ao criar agendamento:', error);
+			toastr.error('Não foi possível criar o agendamento.', 'Agendamento', {
+				timeOut: 5000,
+				progressBar: true
+			});
+		}
+	}
+
+	function askDeleteAgendamento(agendamento) {
+		confirmDelete = { open: true, target: agendamento };
+	}
+
+	function closeDeleteDialog() {
+		confirmDelete = { open: false, target: null };
+	}
+
+	async function confirmDeleteAgendamento() {
+		if (!confirmDelete.target) return;
+		const target = confirmDelete.target;
+		confirmDelete = { open: false, target: null };
+		await handleDeleteAgendamento(target);
+	}
 
 
 	async function onHandleSubmit(event) {
@@ -315,21 +531,56 @@ configurePortalSidebar('dashboard', translate);
 	
 }
 
-	function handleFileChange(event) {
-		const files = event.target.files;
-		anexos = [...anexos];
+function addFilesFromList(fileList) {
+		if (!fileList || fileList.length === 0) return;
 
-		for (let i = 0; i < files.length; i++) {
-			// Cria uma URL de objeto para o arquivo atual
-			const fileUrl = URL.createObjectURL(files[i]);
-			// Adiciona a URL como uma propriedade do objeto do arquivo
-			files[i].url = fileUrl;
-			files[i].redes = [];
-			// Adiciona o arquivo modificado ao array anexos
-			anexos.push(files[i]);
+		const filesArray = Array.from(fileList);
+
+		const invalidFiles = filesArray.filter(
+			(file) => !ALLOWED_MIME_TYPES.has(file.type)
+		);
+
+		if (invalidFiles.length > 0) {
+			const names = invalidFiles.map((f) => f.name).join(', ');
+			toastr.warning(
+				`Ficheiro(s) não suportado(s): ${names}. Use apenas JPG, PNG, GIF ou MP4.`,
+				'Anexos',
+				{ timeOut: 5000, progressBar: true }
+			);
 		}
-		console.log('Anexos selecionados:', anexos);
-		updateSelectedNetworks(); // Update buttons when files are added
+
+		const validFiles = filesArray.filter((file) => ALLOWED_MIME_TYPES.has(file.type));
+
+		const incoming = validFiles.map((file) =>
+			Object.assign(file, {
+				url: URL.createObjectURL(file),
+				redes: Array.isArray(file.redes) ? file.redes : []
+			})
+		);
+
+		anexos = [...anexos, ...incoming];
+		updateSelectedNetworks();
+}
+
+	function handleFileChange(event) {
+		addFilesFromList(event.target.files);
+		event.target.value = '';
+	}
+
+	function handleDrop(event) {
+		if (event?.preventDefault) event.preventDefault();
+		addFilesFromList(event?.dataTransfer?.files ?? []);
+		isDragActive = false;
+	}
+
+	function handleDragOver(event) {
+		if (event?.preventDefault) event.preventDefault();
+		isDragActive = true;
+	}
+
+	function handleDragLeave(event) {
+		if (event?.preventDefault) event.preventDefault();
+		isDragActive = false;
 	}
 
 	function handleSelectTag(tag) {
@@ -496,6 +747,190 @@ configurePortalSidebar('dashboard', translate);
   background: #f0f0f0;
 }
 
+.file-upload-wrapper {
+  width: 100%;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.file-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-preview {
+  display: inline-flex;
+  justify-content: flex-start;
+}
+
+.file-preview-image {
+  max-width: 160px;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #dde3ea;
+}
+
+.file-drop-zone {
+  border: 2px dashed #cfd6dd;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  background: #f9fbfd;
+  color: #7fa0b5;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.file-drop-zone:hover,
+.file-drop-zone.active {
+  border-color: #c2c7d0;
+  background: #edf0f3;
+}
+
+.file-drop-zone-icon {
+  font-size: 32px;
+  color: #a0adba;
+  margin-bottom: 8px;
+}
+
+.file-drop-zone-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #6c7a88;
+}
+
+.file-drop-zone-subtitle {
+  font-size: 14px;
+  color: #9aa6b2;
+}
+
+	.file-drop-zone-helper {
+		font-size: 12px;
+		color: #7fa0b5;
+		margin-top: 6px;
+	}
+
+.schedule-section {
+	border: 1px solid #dde3ea;
+	border-radius: 8px;
+	padding: 16px;
+	background: #fff;
+	margin-top: 16px;
+}
+
+.schedule-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+
+.schedule-title {
+	font-weight: 600;
+	color: #29363d;
+	margin: 0;
+}
+
+.schedule-hint {
+	font-size: 12px;
+	color: #7fa0b5;
+	margin: 4px 0 0;
+}
+
+.schedule-grid {
+	margin-top: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.schedule-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+
+.schedule-label {
+	min-width: 140px;
+	font-weight: 500;
+	color: #4b5c6b;
+}
+
+.schedule-inputs {
+	flex: 1;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 8px;
+}
+
+.schedule-actions {
+	display: flex;
+	gap: 6px;
+	justify-content: flex-end;
+}
+
+.modal-backdrop {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.55);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1050;
+}
+
+.modal-dialog-centered {
+	width: 400px !important;
+	max-width: 400px !important;
+}
+
+.modal-content-custom {
+	background: #fff;
+	border-radius: 8px;
+	box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+	overflow: hidden;
+	height: 400px !important;
+	display: flex;
+	flex-direction: column;
+}
+
+.modal-header-custom {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	border-bottom: 1px solid #dde3ea;
+}
+
+.modal-body-custom {
+	padding: 16px;
+	flex: 1;
+	overflow-y: auto;
+}
+
+.modal-footer-custom {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding: 12px 16px;
+	border-top: 1px solid #dde3ea;
+}
+
+.modal-body-custom .form-group {
+	margin-left: 50px;
+	margin-right: 50px;
+}
+
 </style>
 
 
@@ -561,15 +996,36 @@ configurePortalSidebar('dashboard', translate);
 
 				<div class="form-group">
 					<label for="fileInput">{$t('divPublicar.Anexos')}:</label>
+					<div class="file-upload-wrapper">
 					<input
-						class="form-control file-input"
+							class="file-input-hidden"
 						type="file"
 						id="fileInput"
 						name="fileInput"
-						placeholder={$t('divPublicar.inAnexos')}
+							bind:this={fileInputRef}
 						onchange={(event) => handleFileChange(event)}
 						multiple
 					/>
+						<div
+							class={`file-drop-zone ${isDragActive ? 'active' : ''}`}
+							onclick={() => fileInputRef?.click()}
+							ondragover={handleDragOver}
+							ondragleave={handleDragLeave}
+							ondrop={handleDrop}
+							role="button"
+							tabindex="0"
+							aria-label={$t('divPublicar.dropTitle')}
+						>
+							<i class="fas fa-upload file-drop-zone-icon" aria-hidden="true"></i>
+							<p class="file-drop-zone-title">{$t('divPublicar.dropTitle')}</p>
+							<span class="file-drop-zone-subtitle">
+								{$t('divPublicar.dropSubtitle')}
+							</span>
+							<p class="file-drop-zone-helper">
+								{$t('divPublicar.fileTypesHint')}
+							</p>
+						</div>
+					</div>
 
 					{#if updatedAnexos.length > 0 || anexos.length > 0}
 					<div class="selected-files mt-3">
@@ -578,37 +1034,49 @@ configurePortalSidebar('dashboard', translate);
 						{#each [...updatedAnexos, ...anexos] as file, index}
 						<div class="selected-file">
 							<div class="file-header">
-							<a href={file.url ? file.url : `/ep/portal_noticias/getFileById?id=${file.id_anexo}`} target="_blank" class="file-link">
-								<i class="fas fa-file-alt"></i> {file.nome_original_ficheiro || file.name}
-							</a>
-							<button
-								type="button"
-								class="btn-delete"
-								onclick={() => (file.id_anexo ? removeFile(index) : removeFileUploaded(index))}
-							>
-								<i class="fa fa-trash"></i>
-							</button>
+								<a href={file.url ? file.url : `/ep/portal_noticias/getFileById?id=${file.id_anexo}`} target="_blank" class="file-link">
+									<i class="fas fa-file-alt"></i> {file.nome_original_ficheiro || file.name}
+								</a>
+								<button
+									type="button"
+									class="btn-delete"
+									onclick={() => (file.id_anexo ? removeFile(index) : removeFileUploaded(index))}
+								>
+									<i class="fa fa-trash"></i>
+								</button>
 							</div>
 
-							<div class="file-networks">
-							{#each ['Instagram', 'Facebook', 'Twitter', 'LinkedIn', 'Tiktok'] as network}
-								<label>
-								<input
-									type="checkbox"
-									checked={file.redes.includes(network)}
-									onchange={(event) => {
-									const [canToggle, message] = checkifcanornot(file, network);
-									if (canToggle) {
-										toggleFileNetwork(file, network);
-									} else {
-										event.target.checked = file.redes.includes(network);
-										alert(message);
-									}
-									}}
-								/>
-								{network}
-								</label>
-							{/each}
+							<div class="file-body">
+								{#if file.tipo?.startsWith('image/') || file.type?.startsWith('image/')}
+									<div class="file-preview">
+										<img
+											src={file.url ? file.url : `/ep/portal_noticias/getFileById?id=${file.id_anexo}`}
+											alt={file.nome_original_ficheiro || file.name}
+											class="file-preview-image"
+										/>
+									</div>
+								{/if}
+
+								<div class="file-networks">
+									{#each ['Instagram', 'Facebook', 'Twitter', 'LinkedIn', 'Tiktok'] as network}
+										<label>
+											<input
+												type="checkbox"
+												checked={file.redes.includes(network)}
+												onchange={(event) => {
+													const [canToggle, message] = checkifcanornot(file, network);
+													if (canToggle) {
+														toggleFileNetwork(file, network);
+													} else {
+														event.target.checked = file.redes.includes(network);
+														alert(message);
+													}
+												}}
+											/>
+											{network}
+										</label>
+									{/each}
+								</div>
 							</div>
 						</div>
 						{/each}
@@ -741,6 +1209,88 @@ configurePortalSidebar('dashboard', translate);
 						</div>
 					{/if}
 				</div>
+
+				<div class="schedule-section mt-3">
+					<div class="schedule-header">
+						<div>
+							<p class="schedule-title">Agendamentos desta notícia</p>
+							<p class="schedule-hint">
+								Crie, edite ou remova agendamentos para as redes sociais selecionadas.
+							</p>
+						</div>
+						<button
+							type="button"
+							class="btn btn-sm btn-outline-primary"
+							onclick={openNewScheduleModal}
+						>
+							Novo agendamento
+						</button>
+					</div>
+
+					{#if agendamentosLoading}
+						<p class="text-muted small mt-2">A carregar agendamentos...</p>
+					{:else if agendamentosError}
+						<div class="alert alert-warning mt-2" role="alert">
+							{agendamentosError}
+						</div>
+					{:else if agendamentos.length > 0}
+						<div class="schedule-grid">
+							{#each agendamentos as ag}
+								<div class="schedule-row">
+									<div class="schedule-label">
+										<strong>{ag.pn_redes_sociais?.nome ?? 'Rede'}</strong>
+									</div>
+									<div class="schedule-inputs">
+										<input
+											type="datetime-local"
+											class="form-control"
+											value={toLocalInputValue(ag.horario_agendado)}
+											oninput={(event) =>
+												(ag.horario_agendado = event.currentTarget.value)}
+										/>
+										<select
+											class="form-control"
+											bind:value={ag.fuso_horario}
+										>
+											<option value="Europe/Lisbon">Europe/Lisbon</option>
+											<option value="UTC">UTC</option>
+										</select>
+										<select
+											class="form-control"
+											bind:value={ag.status}
+										>
+											<option value="pendente">Pendente</option>
+											<option value="enviado">Enviado</option>
+											<option value="erro">Erro</option>
+											<option value="cancelado">Cancelado</option>
+										</select>
+									</div>
+									<div class="schedule-actions">
+										<button
+											type="button"
+											class="btn btn-sm btn-outline-primary"
+											onclick={() => handleUpdateAgendamento(ag)}
+										>
+											Guardar
+										</button>
+										<button
+											type="button"
+											class="btn btn-sm btn-outline-danger"
+											onclick={() => askDeleteAgendamento(ag)}
+										>
+											Remover
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-muted small mt-2">
+							Esta notícia não tem agendamentos configurados. Clique em "Novo agendamento" para criar o primeiro.
+						</p>
+					{/if}
+				</div>
+
 				<div class="col-md-12 text-md-right">
 					<button
 						type="submit"
@@ -758,4 +1308,98 @@ configurePortalSidebar('dashboard', translate);
 		</div>
 	</form>
 </div>
+{#if showScheduleModal}
+	<div class="modal-backdrop">
+		<div class="modal-dialog-centered">
+			<div class="modal-content-custom">
+				<div class="modal-header-custom">
+					<h5 class="modal-title">Novo agendamento</h5>
+					<button type="button" class="close" aria-label="Close" onclick={closeNewScheduleModal}>
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body-custom">
+					<div class="form-group">
+						<label>Rede social</label>
+						<select
+							class="form-control"
+							bind:value={newSchedule.id_rede_social}
+						>
+							<option value="">Selecione uma rede</option>
+							{#each redesSociais.filter((rede) => rede.checked) as rede}
+								<option value={rede.id_rede_social}>{rede.nome}</option>
+							{/each}
+						</select>
+					</div>
+					<div class="form-group">
+						<label>Data e hora</label>
+						<input
+							type="datetime-local"
+							class="form-control"
+							bind:value={newSchedule.horario_local}
+						/>
+					</div>
+					<div class="form-group">
+						<label>Fuso horário</label>
+						<select
+							class="form-control"
+							bind:value={newSchedule.fuso_horario}
+						>
+							<option value="Europe/Lisbon">Europe/Lisbon</option>
+							<option value="UTC">UTC</option>
+						</select>
+					</div>
+				</div>
+				<div class="modal-footer-custom">
+					<button
+						type="button"
+						class="btn btn-secondary"
+						onclick={closeNewScheduleModal}
+					>
+						Cancelar
+					</button>
+					<button
+						type="button"
+						class="btn btn-primary"
+						onclick={handleCreateAgendamento}
+					>
+						Guardar
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if confirmDelete.open}
+	<div class="modal-backdrop">
+		<div class="modal-dialog-centered">
+			<div class="modal-content-custom">
+				<div class="modal-header-custom">
+					<h5 class="modal-title">Remover agendamento</h5>
+				</div>
+				<div class="modal-body-custom">
+					<p>Tem a certeza que pretende remover este agendamento?</p>
+				</div>
+				<div class="modal-footer-custom">
+					<button
+						type="button"
+						class="btn btn-secondary"
+						onclick={closeDeleteDialog}
+					>
+						Cancelar
+					</button>
+					<button
+						type="button"
+						class="btn btn-danger"
+						onclick={confirmDeleteAgendamento}
+					>
+						Remover
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <SuccesModal show={showModal} message={modalMessage} onClose={handleCloseModal} />

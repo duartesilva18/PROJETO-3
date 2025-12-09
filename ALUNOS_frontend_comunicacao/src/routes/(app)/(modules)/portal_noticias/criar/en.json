@@ -59,6 +59,7 @@
         "inText":"Insert the Text",
         "inTitle":"Insert the Title",
         "inAnexos":"Add files",
+        "fileTypesHint":"Accepted files: JPG, PNG, GIF images and MP4 videos. Other formats may not be supported by social networks.",
         "cria":"Create News",
         "editar":"Save changes",
         "listar":"List News"

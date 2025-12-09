@@ -47,7 +47,7 @@
         {modulo || ""}
     {#if objeto}
         <span class="separator-disc mx-2">&#8226;</span>
-        <span class="module-subtitle">{objeto || ""}</span>
+        <span class="module-subtitle">{@html objeto || ""}</span>
     {/if}
     </li>
     <!-- Breadcrumb Menu-->

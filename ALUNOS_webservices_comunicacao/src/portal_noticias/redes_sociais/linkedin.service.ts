@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as fs from 'fs';
@@ -6,10 +6,74 @@ import * as path from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
-export class LinkedInService {
+export class LinkedInService implements OnModuleInit {
+  private readonly logger = new Logger(LinkedInService.name);
+  private readonly organizationId: string;
+
   constructor(private readonly configService: ConfigService,
     private prisma: PrismaService
-  ) {}
+  ) {
+    this.organizationId =
+      this.configService.get<string>('LINKEDIN_ORGANIZATION_ID') ?? '105713335';
+  }
+
+  async onModuleInit() {
+    try {
+      await this.logContaAssociada();
+    } catch (error) {
+      this.logger.warn(
+        `Não foi possível obter a conta do LinkedIn ao iniciar: ${error?.message ?? error}`,
+      );
+    }
+  }
+
+  async logContaAssociada() {
+    const accessToken = this.configService.get<string>('LINKEDIN_ACCESS_TOKEN');
+    if (!accessToken) {
+      throw new Error('LINKEDIN_ACCESS_TOKEN não configurado.');
+    }
+
+    const headers = { Authorization: `Bearer ${accessToken}` };
+
+    const meResponse = await axios.get('https://api.linkedin.com/v2/me', {
+      headers,
+      params: { projection: '(id,localizedFirstName,localizedLastName,vanityName)' },
+    });
+
+    let orgName = 'N/A';
+    if (this.organizationId) {
+      try {
+        const orgResp = await axios.get(
+          `https://api.linkedin.com/v2/organizations/${this.organizationId}`,
+          {
+            headers,
+            params: { projection: '(id,localizedName,vanityName)' },
+          },
+        );
+        orgName = orgResp.data.localizedName ?? orgResp.data.vanityName ?? this.organizationId;
+      } catch (orgError) {
+        this.logger.warn(
+          `Não foi possível obter os dados da organização LinkedIn (${this.organizationId}): ${
+            orgError?.message ?? orgError
+          }`,
+        );
+      }
+    }
+
+    const { id, localizedFirstName, localizedLastName, vanityName } = meResponse.data;
+    this.logger.log(
+      `[LinkedInService] Conta autenticada: ${localizedFirstName} ${localizedLastName ?? ''} (${
+        vanityName ?? id
+      }) | Organização: ${orgName}`,
+    );
+
+    return {
+      id,
+      name: `${localizedFirstName} ${localizedLastName ?? ''}`.trim(),
+      vanityName,
+      organization: { id: this.organizationId, name: orgName },
+    };
+  }
 
   
 
@@ -98,7 +162,7 @@ export class LinkedInService {
         },
       ];
     }
-    const organizationId = '105713335';
+    const organizationId = this.organizationId;
     const postData = {
       author: `urn:li:organization:${organizationId}`,
       lifecycleState: 'PUBLISHED',

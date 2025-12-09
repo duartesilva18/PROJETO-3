@@ -145,6 +145,16 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 		return new Date(dateString).toLocaleDateString('pt-PT', options);
 	}
 
+	function formatDateTimeAgendamento(value) {
+		if (!value) return '-';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '-';
+		return `${date.toLocaleDateString('pt-PT')} ${date.toLocaleTimeString('pt-PT', {
+			hour: '2-digit',
+			minute: '2-digit'
+		})}`;
+	}
+
 	function pesquisarNoticia() {
 		const keyword = diacriticless(formFilter.titulo.toLowerCase().trim());
 
@@ -215,7 +225,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			render: function (data, type, row) {
 				const estadoOriginal = (row[1] ?? '').toString();
 				const normalized = estadoOriginal.toLowerCase();
-				const hasAgendamento = Number(row[10]) > 0;
+				const hasAgendamento = Number(row[11]) > 0;
 				const isPending = normalized === 'pendente';
 				const isPublished = normalized === 'publicado';
 
@@ -247,6 +257,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			}
 		},
 		{ title: $t('divNoticias.dataCriacao'), width: '1%', orderable: false },
+		{ title: 'Data agendamento', width: '1%', orderable: false },
 		{ title: $t('divNoticias.categoria'), width: '2%' },
 		{
 			title: 'Anexos',
@@ -255,7 +266,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 				let badgeIcon = '';
 				let badgeColor = 'badge-secondary';
 
-				const anexos = row[4] ?? [];
+				const anexos = row[5] ?? [];
 				const count = Array.isArray(anexos) ? anexos.length : 0;
 
 				if (count > 0) {
@@ -279,7 +290,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			title: 'Facebook',
 			width: '1%',
 			render: (data, type, row) =>
-				row[5] !== null && row[5] !== ''
+				row[6] !== null && row[6] !== ''
 					? `<div class="d-flex justify-content-center">✔️</div>`
 					: ''
 		},
@@ -287,7 +298,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			title: 'Instagram',
 			width: '1%',
 			render: (data, type, row) =>
-				row[6] !== null && row[6] !== ''
+				row[7] !== null && row[7] !== ''
 					? `<div class="d-flex justify-content-center">✔️</div>`
 					: ''
 		},
@@ -295,20 +306,12 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			title: 'LinkedIn',
 			width: '1%',
 			render: (data, type, row) =>
-				row[7] !== null && row[7] !== ''
-					? `<div class="d-flex justify-content-center">✔️</div>`
-					: ''
-		},
-		{
-			title: 'Twitter',
-			width: '1%',
-			render: (data, type, row) =>
 				row[8] !== null && row[8] !== ''
 					? `<div class="d-flex justify-content-center">✔️</div>`
 					: ''
 		},
 		{
-			title: 'Tiktok',
+			title: 'Twitter',
 			width: '1%',
 			render: (data, type, row) =>
 				row[9] !== null && row[9] !== ''
@@ -382,9 +385,10 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			width: '1%',
 			render: (data, type, row, meta) => {
 				const isPending = row[1] === ESTADO_PENDENTE;
-				const hasSchedule = Number(row[10]) > 0;
+				const hasSchedule = Number(row[11]) > 0;
 				const publishLabel = 'Publicar';
 				const agendadoLabel = $t('divNoticias.agendado');
+				const isPublished = row[1] === ESTADO_PUBLICADO;
 				if (isPending && !hasSchedule) {
 					return `
 					<div class="d-flex justify-content-center">
@@ -409,13 +413,15 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 						</button>
 					</div>`;
 				}
+				const finalLabel = isPublished ? 'Publicado' : publishLabel;
+				const finalIcon = isPublished ? 'fa fa-check mr-1' : 'fa fa-share-alt mr-1';
 				return `
 				<div class="d-flex justify-content-center">
 					<button
 						class="btn btn-sm btn-outline-secondary table_button_publish_noticia disabled"
 						style="cursor: not-allowed; opacity: 0.4;"
 					>
-						<i class="fa fa-share-alt mr-1"></i> Publicar
+						<i class="${finalIcon}"></i> ${finalLabel}
 					</button>
 				</div>`;
 			}
@@ -604,10 +610,20 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 
 		filteredNoticias.forEach((noticia, index) => {
 			const hasAgendamento = (noticia.pn_agendamento_rede?.length ?? 0) > 0;
+			let dataAgendamentoLabel = '-';
+			if (hasAgendamento) {
+				const sorted = [...(noticia.pn_agendamento_rede ?? [])].sort((a, b) => {
+					const da = new Date(a.horario_agendado);
+					const db = new Date(b.horario_agendado);
+					return da.getTime() - db.getTime();
+				});
+				dataAgendamentoLabel = formatDateTimeAgendamento(sorted[0]?.horario_agendado);
+			}
 			const rowData = [
 				`<div class="clickable-cell" data-rowindex="${index}">${noticia.titulo}</div>`,
 				noticia.estado,
 				formatDate(noticia.data_criacao),
+				dataAgendamentoLabel,
 				noticia.pn_categoria?.nome ?? '-',
 				noticia.pn_anexos ?? [],
 				noticia.texto_facebook,
@@ -625,6 +641,17 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			.off('click', '.clickable-cell')
 			.on('click', '.clickable-cell', function () {
 				const rowIndex = jQuery(this).data('rowindex');
+				const noticia = filteredNoticias[rowIndex];
+				showFullNews(noticia);
+			})
+			.off('click', 'tbody tr')
+			.on('click', 'tbody tr', function (event) {
+				// Evita interferir com cliques em botões ou no estado "Agendado"
+				const target = jQuery(event.target);
+				if (target.closest('button, a, .estado-agendado').length > 0) return;
+				const cell = jQuery(this).find('.clickable-cell').first();
+				const rowIndex = cell.data('rowindex');
+				if (rowIndex === undefined) return;
 				const noticia = filteredNoticias[rowIndex];
 				showFullNews(noticia);
 			});

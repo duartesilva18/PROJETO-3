@@ -11,6 +11,13 @@ import type { Express } from 'express';
 export class AnexosService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly allowedMimeTypes = new Set<string>([
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'video/mp4'
+  ]);
+
   async get_Anexos() {
     const anexos = await this.prisma.pn_anexos.findMany({
       select: {
@@ -34,6 +41,21 @@ export class AnexosService {
     try {
       if (!files || files.length === 0) {
         throw new BadRequestException('Nenhum ficheiro enviado.');
+      }
+
+      const invalidFiles = files.filter(
+        (file) => !this.allowedMimeTypes.has(file.mimetype)
+      );
+
+      if (invalidFiles.length > 0) {
+        const detalhes = invalidFiles
+          .map((file) => `${file.originalname} (${file.mimetype || 'tipo desconhecido'})`)
+          .join(', ');
+
+        throw new BadRequestException(
+          `Tipo de ficheiro não suportado: ${detalhes}. ` +
+            'Apenas são permitidas imagens JPG/PNG/GIF e vídeos MP4.'
+        );
       }
 
       const uploadedFiles: any[] = [];

@@ -1,11 +1,12 @@
 <script>
 	import Breadcrum from '$lib/components/Breadcrum.svelte';
+import { goto } from '$app/navigation';
 	import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 import { configurePortalSidebar } from '../sidebar.config.js';
 import { locale, t } from '$lib/translations/translations';
 import { preventDefault } from 'svelte/legacy';
 	import { get } from 'svelte/store';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import toastr from 'toastr';
 	import * as dt_pt from '$lib/translations/pt/datatables.json';
 	import * as dt_en from '$lib/translations/en/datatables.json';
@@ -42,16 +43,10 @@ import { preventDefault } from 'svelte/legacy';
 	let table = $state();
 	let el = $state();
 	let isSaving = $state(false);
+	let autoRefreshHandle;
 
 	/** @type {{ icon_class: string; url: string; designacao: string; function?: () => void }[]} */
-	let items_breadcrum = $derived([
-		{
-			icon_class: 'fas fa-rotate',
-			url: '#',
-			designacao: 'Atualizar',
-			function: loadAgendamentos
-		}
-	]);
+	let items_breadcrum = $derived([]);
 
 	onMount(async () => {
 		if (jq?.fn?.dataTable?.ext) {
@@ -68,14 +63,33 @@ import { preventDefault } from 'svelte/legacy';
 			language: locale.get() === 'pt' ? dt_pt : dt_en
 		});
 		refreshTable();
+
+		// Refresh automático dos estados / dados de X em X tempo
+		autoRefreshHandle = setInterval(() => {
+			loadAgendamentos();
+		}, 60_000);
+	});
+
+	onDestroy(() => {
+		if (autoRefreshHandle) {
+			clearInterval(autoRefreshHandle);
+		}
 	});
 
 	async function loadAgendamentos() {
 		try {
 			loadingData = true;
 			const response = await fetch('/ep/portal_noticias/redes/agendamentos');
-			const data = await response.json();
-			agendamentos = Array.isArray(data) ? data : [];
+			const raw = await response.json();
+			// Backend pode devolver um array simples ou um objeto { agendamentos: [...] }
+			if (Array.isArray(raw)) {
+				agendamentos = raw;
+			} else if (Array.isArray(raw?.agendamentos)) {
+				agendamentos = raw.agendamentos;
+			} else {
+				console.warn('Formato inesperado de resposta de agendamentos:', raw);
+				agendamentos = [];
+			}
 			filteredAgendamentos = agendamentos;
 		} catch (error) {
 			console.error(error);
@@ -312,7 +326,7 @@ import { preventDefault } from 'svelte/legacy';
 	menu_items={items_breadcrum}
 />
 
-<div class="tableNews">
+<div class="tableNews agendamentos-layout">
 	<div class="row g-4">
 		<div class="col-lg-8">
 			<div class="card-simple">
@@ -330,18 +344,6 @@ import { preventDefault } from 'svelte/legacy';
 							bind:value={formFilter.termo}
 							oninput={applyFilters}
 						/>
-						<select class="form-control" bind:value={formFilter.rede} onchange={applyFilters}>
-							<option value="">Todas as redes</option>
-							{#each redesDisponiveis() as rede}
-								<option value={rede.id}>{rede.nome}</option>
-							{/each}
-						</select>
-						<select class="form-control" bind:value={formFilter.status} onchange={applyFilters}>
-							<option value="">Todos os estados</option>
-							{#each STATUS_OPTIONS as status}
-								<option value={status}>{status}</option>
-							{/each}
-						</select>
 					</form>
 				</div>
 
@@ -419,6 +421,10 @@ import { preventDefault } from 'svelte/legacy';
 
 <style>
 	@import '../portal_noticias.css';
+
+	.agendamentos-layout {
+		margin-top: 16px;
+	}
 
 	.card-simple {
 		border: 1px solid #dde3ea;

@@ -11,6 +11,7 @@
 	import * as dt_en from '$lib/translations/en/datatables.json';
 	import { configurePortalSidebar } from '../sidebar.config.js';
 	import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
+	import toastr from 'toastr';
 
 	/** @type {(key: string) => string} */
 	const translate = (key) => get(t)(key);
@@ -57,6 +58,7 @@
 	let isSaving = $state(false);
 	let statusMessage = $state('');
 	let statusType = /** @type {'success' | 'error'} */ ($state('success'));
+	let isFormModalOpen = $state(false);
 	let deleteModal = $state(
 		/** @type {{ open: boolean; tag: Tag | null }} */ ({
 			open: false,
@@ -284,8 +286,8 @@
 	}
 
 	function scrollToForm() {
+		isFormModalOpen = true;
 		focusInput();
-		formSectionEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
 	/**
@@ -329,17 +331,25 @@
 				throw new Error('Erro ao guardar tag');
 			}
 
-			showStatus(
-				'success',
-				tagForm.id
-					? tf('divTags.successUpdate', 'Tag atualizada com sucesso.', 'Tag updated successfully.')
-					: tf('divTags.successCreate', 'Tag criada com sucesso.', 'Tag created successfully.')
-			);
+			const successMessage = tagForm.id
+				? tf('divTags.successUpdate', 'Tag atualizada com sucesso.', 'Tag updated successfully.')
+				: tf('divTags.successCreate', 'Tag criada com sucesso.', 'Tag created successfully.');
+
+			showStatus('success', successMessage);
+			toastr.success(successMessage, 'SUCESSO!', { timeOut: 5000, progressBar: true });
+
 			resetForm();
+			isFormModalOpen = false;
 			await loadTags();
 		} catch (error) {
 			console.error(error);
-			showStatus('error', tf('divTags.errorGeneric', 'Não foi possível concluir a operação.', 'Unable to complete the operation.'));
+			const errorMessage = tf(
+				'divTags.errorGeneric',
+				'Não foi possível concluir a operação.',
+				'Unable to complete the operation.'
+			);
+			showStatus('error', errorMessage);
+			toastr.error(errorMessage, 'Erro', { timeOut: 5000, progressBar: true });
 		} finally {
 			isSaving = false;
 		}
@@ -479,60 +489,6 @@
 		</form>
 	</div>
 
-	<section class="tag-form card" bind:this={formSectionEl}>
-		<div class="card-body">
-			<h5 class="card-title">
-				{isEditing
-					? tf('divTags.editarTitulo', 'Editar Tag', 'Edit Tag')
-					: tf('divTags.criarTitulo', 'Criar Tag', 'Create Tag')}
-			</h5>
-			{#if statusMessage}
-				<div
-					class={`alert ${statusType === 'success' ? 'alert-success' : 'alert-danger'} mb-3`}
-					role="alert"
-				>
-					{statusMessage}
-				</div>
-			{/if}
-			<form onsubmit={preventDefault(saveTag)}>
-				<div class="row">
-					<div class="col-md-6 col-lg-5">
-						<label for="tagNome" class="filter-label">
-							{tf('divTags.nome', 'Nome', 'Name')}
-						</label>
-						<input
-							id="tagNome"
-							class="form-control"
-							type="text"
-							bind:value={tagForm.nome}
-							placeholder={tf('divTags.nomePlaceholder', 'Ex: Eventos', 'e.g. Events')}
-							bind:this={nomeInput}
-							maxlength="120"
-							required
-						/>
-					</div>
-				</div>
-				<div class="form-buttons mt-3">
-					<button type="submit" class="btn btn-primary btn-sm" disabled={isSaving}>
-						{isEditing
-							? tf('divTags.atualizar', 'Atualizar', 'Update')
-							: tf('divTags.guardar', 'Guardar', 'Save')}
-					</button>
-					{#if isEditing}
-						<button
-							type="button"
-							class="btn btn-outline-secondary btn-sm"
-							onclick={resetForm}
-							disabled={isSaving}
-						>
-							{tf('divTags.cancelar', 'Cancelar', 'Cancel')}
-						</button>
-					{/if}
-				</div>
-			</form>
-		</div>
-	</section>
-
 	<div id="defaultTable">
 		<div id="conteudo_carregado">
 			<div hidden={loadingData} class="row" id="modulepage_content" style="display: block">
@@ -555,6 +511,64 @@
 		{/if}
 	</div>
 </div>
+
+{#if isFormModalOpen}
+	<div class="modal-backdrop-custom">
+		<div class="modal-card tag-modal-card" bind:this={formSectionEl}>
+			<h5 class="mb-3">
+				{isEditing
+					? tf('divTags.editarTitulo', 'Editar Tag', 'Edit Tag')
+					: tf('divTags.criarTitulo', 'Criar Tag', 'Create Tag')}
+			</h5>
+
+			{#if statusMessage}
+				<div
+					class={`alert ${statusType === 'success' ? 'alert-success' : 'alert-danger'} mb-3`}
+					role="alert"
+				>
+					{statusMessage}
+				</div>
+			{/if}
+
+			<form onsubmit={preventDefault(saveTag)}>
+				<div class="mb-3">
+					<label for="tagNome" class="filter-label">
+						{tf('divTags.nome', 'Nome', 'Name')}
+					</label>
+					<input
+						id="tagNome"
+						class="form-control"
+						type="text"
+						bind:value={tagForm.nome}
+						placeholder={tf('divTags.nomePlaceholder', 'Ex: Eventos', 'e.g. Events')}
+						bind:this={nomeInput}
+						maxlength="120"
+						required
+					/>
+				</div>
+
+				<div class="modal-actions">
+					<button type="submit" class="btn btn-primary btn-sm" disabled={isSaving}>
+						{isEditing
+							? tf('divTags.atualizar', 'Atualizar', 'Update')
+							: tf('divTags.guardar', 'Guardar', 'Save')}
+					</button>
+					<button
+						type="button"
+						class="btn btn-outline-secondary btn-sm"
+						onclick={() => {
+							isFormModalOpen = false;
+							resetForm();
+						}}
+						disabled={isSaving}
+					>
+						{tf('divTags.cancelar', 'Cancelar', 'Cancel')}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
 
 {#if deleteModal.open}
 	<div class="modal-backdrop-custom">
@@ -582,22 +596,6 @@
 <style>
 	@import '../portal_noticias.css';
 
-	.tag-form {
-		margin: 16px 24px;
-		border: 1px solid #dde3ea;
-		border-radius: 6px;
-	}
-
-	.tag-form .card-body {
-		padding: 20px 24px;
-	}
-
-	.tag-form .card-title {
-		font-size: 16px;
-		font-weight: 600;
-		color: #29363d;
-	}
-
 	.form-buttons .btn + .btn {
 		margin-left: 8px;
 	}
@@ -621,6 +619,10 @@
 		padding: 24px;
 		width: min(420px, calc(100% - 32px));
 		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+	}
+
+	.tag-modal-card {
+		width: min(520px, calc(100% - 32px));
 	}
 
 	.modal-card h5 {

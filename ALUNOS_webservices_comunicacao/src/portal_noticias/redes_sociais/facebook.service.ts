@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { readFile } from 'fs/promises';
@@ -7,9 +7,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { readFileIntoBuffer } from 'twitter-api-v2/dist/esm/v1/media-helpers.v1';
 
 @Injectable()
-export class FacebookService {
+export class FacebookService implements OnModuleInit {
   private imgurClient: ImgurClient;
   private pageId: string;
+  private readonly logger = new Logger(FacebookService.name);
 
   constructor(private readonly configService: ConfigService,
     private prisma: PrismaService
@@ -17,6 +18,35 @@ export class FacebookService {
     const clientId = this.configService.get<string>('IMGUR_CLIENT_ID');
     this.imgurClient = new ImgurClient({ clientId });
     this.pageId = this.configService.get<string>('FACEBOOK_PAGE_ID');
+  }
+
+  async onModuleInit() {
+    try {
+      await this.logContaAssociada();
+    } catch (error) {
+      this.logger.warn(
+        `Não foi possível obter a conta do Facebook ao iniciar: ${error?.message ?? error}`,
+      );
+    }
+  }
+
+  async logContaAssociada() {
+    const pageAccessToken = this.configService.get<string>('META_PAGE_ACCESS_TOKEN');
+
+    if (!this.pageId || !pageAccessToken) {
+      throw new Error('FACEBOOK_PAGE_ID ou META_PAGE_ACCESS_TOKEN não configurados.');
+    }
+
+    const response = await axios.get(`https://graph.facebook.com/${this.pageId}`, {
+      params: {
+        fields: 'name,id',
+        access_token: pageAccessToken,
+      },
+    });
+
+    const { id, name } = response.data;
+    this.logger.log(`[FacebookService] Página autenticada: ${name} (${id})`);
+    return response.data;
   }
 
   async uploadMediaToHosting(nome_ficheiro: string, tipo: string): Promise<string> {

@@ -4,14 +4,14 @@
     },
     "Titulos":{
         "Publicar":"Publicar Noticia",
-        "VerNoticia":"Ver Noticia",
+        "VerNoticia":"Detalhes Noticia",
         "Listar":"Listar Noticias",
         "Editar":"Editar Noticias",
         "Redes":"Redes Sociais"
     },
     "Modulos": {
         "Publicar": "Publicar Noticia",
-        "VerNoticia": "Ver Noticia",
+        "VerNoticia": "Detalhes Noticia",
         "Listar": "Listar Noticias",
         "Editar": "Editar Noticias",
         "Redes": "Redes Sociais"
@@ -90,7 +90,19 @@
         "actions":"Ações",
         "anexo": "Anexo",
         "anexos": "Anexos",
-        "sanexos": "S/ Anexos"
+        "sanexos": "S/ Anexos",
+        "noticia": "Notícia",
+        "anterior": "Anterior",
+        "seguinte": "Seguinte",
+        "agendamentosNoticia": "Agendamentos desta notícia",
+        "rede": "Rede",
+        "dataHora": "Data / hora",
+        "fuso": "Fuso horário",
+        "estadoAgendamento": "Estado",
+        "anexosTitulo": "Anexos",
+        "imagens": "Imagens",
+        "videos": "Vídeos",
+        "previewRedes": "Pré-visualizar publicação nas Redes Sociais"
     },
   
     "divRedes": {

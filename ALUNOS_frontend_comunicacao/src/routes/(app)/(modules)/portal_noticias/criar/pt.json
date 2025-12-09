@@ -46,6 +46,7 @@
         "inText":"Insira o Texto",
         "inTitle":"Insira o Titulo",
         "inAnexos":"Adicione Ficheiros",
+        "fileTypesHint":"Ficheiros aceites: imagens JPG, PNG, GIF e vídeos MP4. Outros formatos podem não ser suportados nas redes sociais.",
         "editar":"Guardar Alterações",
         "listar":"Listar Noticias"
         

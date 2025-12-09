@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Redes_Sociais_Dto } from '../dto/redes_sociais.dto';
 import { FacebookService } from './facebook.service';
@@ -11,7 +11,7 @@ import { NoticiasService } from '../noticias/noticias.service';
 import { AgendarNoticiaRedesDto, AgendamentoStatus, AtualizaAgendamentoDto } from '../dto/agendamento_redes.dto';
 
 @Injectable()
-export class RedesSociaisService {
+export class RedesSociaisService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private facebookService: FacebookService,
@@ -154,6 +154,18 @@ export class RedesSociaisService {
     return res
   }
 
+  onModuleInit() {
+    // Job simples em memória: corre a cada 60 segundos
+    setInterval(() => {
+      this.processarAgendamentosPendentes().catch((error) => {
+        this.logger.error(
+          `Erro no job de agendamentos: ${error?.message ?? error}`,
+          error?.stack,
+        );
+      });
+    }, 60_000);
+  }
+
   async agendarRedes(dto: AgendarNoticiaRedesDto) {
     if (!dto.agendamentos?.length) {
       throw new BadRequestException('É necessário indicar pelo menos um agendamento.');
@@ -225,6 +237,7 @@ export class RedesSociaisService {
   }
 
   async listarTodosAgendamentos() {
+    try {
     const agendamentos = await this.prisma.pn_agendamento_rede.findMany({
       include: {
         pn_redes_sociais: {
@@ -251,6 +264,18 @@ export class RedesSociaisService {
       },
     });
 
+      this.logger.log(
+        `listarTodosAgendamentos -> encontrados ${agendamentos.length} registos`,
+      );
+      console.log(
+        'listarTodosAgendamentos RAW:',
+        JSON.stringify(agendamentos.map(a => ({
+          id_agendamento: a.id_agendamento,
+          id_noticia: a.id_noticia,
+          id_rede_social: a.id_rede_social
+        })), null, 2),
+      );
+
     return agendamentos.map((agendamento) => ({
       id_agendamento: agendamento.id_agendamento,
       id_noticia: agendamento.id_noticia,
@@ -262,6 +287,10 @@ export class RedesSociaisService {
       fuso_horario: agendamento.fuso_horario,
       status: agendamento.status,
     }));
+    } catch (error) {
+      this.logger.error('Erro ao listar agendamentos', error?.stack ?? error);
+      throw error;
+    }
   }
 
   async listarAgendamentosPorNoticia(id_noticia: string) {
@@ -382,7 +411,7 @@ export class RedesSociaisService {
     return [base?.trim(), tags?.trim()].filter(Boolean).join(' ').trim();
   }
 
-  async publicarNoticia(id_noticia: string) {
+  async publicarNoticia(id_noticia: string, redesPermitidas?: string[]) {
     const noticia = await this.prisma.pn_noticia.findUnique({
       where: { id_noticia },
       include: {
@@ -411,7 +440,16 @@ export class RedesSociaisService {
       .join(' ')
       .trim();
 
-    const redes = noticia.pn_rs_noticia
+    let redesRelacionadas = noticia.pn_rs_noticia;
+
+    if (redesPermitidas?.length) {
+      const permitidasSet = new Set(redesPermitidas);
+      redesRelacionadas = redesRelacionadas.filter(
+        (rede) => permitidasSet.has(rede.id_rede_social_FK),
+      );
+    }
+
+    const redes = redesRelacionadas
       .map((rede) => rede.pn_redes_sociais?.nome)
       .filter((nome): nome is string => !!nome);
 
@@ -531,7 +569,98 @@ export class RedesSociaisService {
 
     return { id_noticia, results };
   }
-  
 
-  
+  /**
+   * Verifica agendamentos pendentes e dispara a publicação
+   * automática das notícias nas redes sociais configuradas.
+   */
+  async processarAgendamentosPendentes() {
+    const agora = new Date();
+
+    try {
+      const pendentes = await this.prisma.pn_agendamento_rede.findMany({
+        where: {
+          status: AgendamentoStatus.PENDENTE,
+          horario_agendado: {
+            lte: agora,
+          },
+        },
+        select: {
+          id_agendamento: true,
+          id_noticia: true,
+          id_rede_social: true,
+        },
+      });
+
+      if (!pendentes.length) {
+        return;
+      }
+
+      this.logger.log(
+        `processarAgendamentosPendentes -> ${pendentes.length} agendamentos em fila`,
+      );
+
+      const porNoticia = new Map<
+        string,
+        { id_agendamento: string; id_rede_social: string }[]
+      >();
+
+      for (const item of pendentes) {
+        const lista = porNoticia.get(item.id_noticia) ?? [];
+        lista.push({
+          id_agendamento: item.id_agendamento,
+          id_rede_social: item.id_rede_social,
+        });
+        porNoticia.set(item.id_noticia, lista);
+      }
+
+      for (const [id_noticia, agendamentos] of porNoticia.entries()) {
+        const redesPermitidas = agendamentos.map((a) => a.id_rede_social);
+
+        try {
+          const resultado = await this.publicarNoticia(id_noticia, redesPermitidas);
+
+          this.logger.log(
+            `Agendamentos de notícia ${id_noticia} processados com sucesso. Resultado: ${JSON.stringify(
+              resultado,
+            )}`,
+          );
+
+          await this.prisma.pn_agendamento_rede.updateMany({
+            where: {
+              id_noticia,
+              id_rede_social: { in: redesPermitidas },
+            },
+            data: {
+              status: AgendamentoStatus.ENVIADO,
+            },
+          });
+        } catch (error) {
+          this.logger.error(
+            `Erro ao processar agendamentos da notícia ${id_noticia}: ${
+              (error as any)?.message ?? error
+            }`,
+            (error as any)?.stack,
+          );
+
+          await this.prisma.pn_agendamento_rede.updateMany({
+            where: {
+              id_noticia,
+              id_rede_social: { in: redesPermitidas },
+            },
+            data: {
+              status: AgendamentoStatus.ERRO,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `Erro geral em processarAgendamentosPendentes: ${
+          (error as any)?.message ?? error
+        }`,
+        (error as any)?.stack,
+      );
+    }
+  }
 }

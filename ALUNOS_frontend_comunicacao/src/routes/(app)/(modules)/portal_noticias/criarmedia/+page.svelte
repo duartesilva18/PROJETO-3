@@ -619,12 +619,17 @@ configurePortalSidebar('criarMedia', translate);
                   id="sFile-{index}"
                   style="background-color: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"
                 >
-                  <!-- Existing link / remove button -->
-                  <a href={file.url} target="_blank" class="file-link d-flex align-items-center text-decoration-none">
-                    <i class="fas fa-file-alt me-2 text-primary"
-                      style="margin-right: 10px; font-size: 1.2em;"></i>
-                    {file.name}
-                  </a>
+                  <!-- Preview + link -->
+                  <div class="d-flex align-items-center">
+                    {#if file.type && file.type.startsWith('image/')}
+                      <img src={file.url} alt={file.name} class="file-preview-thumb" />
+                    {/if}
+                    <a href={file.url} target="_blank" class="file-link d-flex align-items-center text-decoration-none">
+                      <i class="fas fa-file-alt me-2 text-primary"
+                        style="margin-right: 10px; font-size: 1.2em;"></i>
+                      {file.name}
+                    </a>
+                  </div>
                   <button
                     type="button"
                     onclick={() => removeFile(index)}

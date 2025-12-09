@@ -3,7 +3,6 @@
 import Breadcrum from '$lib/components/Breadcrum.svelte';
 import { t } from '$lib/translations/translations';
 	import { onMount } from 'svelte';
-	import PublicarNoticia from './modals/PublicarNoticia.svelte';
 	import RemoveModal from '../../noticia/[id]/modals/RemoveModal.svelte';
 	import Modal from './Modal.svelte';
 	import FacebookPreview from './modals/FacebookPreview.svelte';
@@ -15,8 +14,9 @@ import { derived } from 'svelte/store';
 import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 import { configurePortalSidebar } from '../../sidebar.config.js';
 
-	import { page } from '$app/stores';
+import { page } from '$app/stores';
 import { get } from 'svelte/store';
+import { modalStore } from '$lib/stores/modalStore';
 
 	
 const translate = (key) => get(t)(key);
@@ -35,22 +35,8 @@ configurePortalSidebar('dashboard', translate);
 	let selectedSocialNetwork = $state('bacx');
 	let resultString = $state('');
 	let showPopup = $state(false);
-	let showPublish= $state(false);
 
 	let removeModalBind = $state();
-	console.log("1");
-	
-	console.log("2");
-
-	function handleSelect(noticia) {
-		noticiaSelecionada = noticia;
-		showPublish = true;
-	}
-
-	const onPopupClose = (data) => {
-		showPopup = false;
-		showPublish= false;
-	};
 
 	const icones = {
 		Facebook: 'fab fa-facebook-f',
@@ -95,14 +81,6 @@ configurePortalSidebar('dashboard', translate);
 			console.error('Erro ao buscar notícia:', error);
 		}
 	});
-
-	
-
-	async function publicarNoticia() {
-		console.log("publicar noticia clicado!")
-		handleSelect(noticiaSelecionada);
-		console.log("Show Publish State After handleSelect:", showPublish);
-	}
 
 	function nextImage() {
 		if (currentIndex < noticiaSelecionada.pn_anexos.length - 1) {
@@ -185,6 +163,24 @@ configurePortalSidebar('dashboard', translate);
 			day: 'numeric'
 		});
 	}
+
+	function formatDateTime(value) {
+		if (!value) return '-';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '-';
+		return `${date.toLocaleDateString('pt-PT')} ${date.toLocaleTimeString('pt-PT', {
+			hour: '2-digit',
+			minute: '2-digit'
+		})}`;
+	}
+
+	function getTagNames() {
+		return (
+			noticiaSelecionada?.pn_noticia_Tag
+				?.map((item) => item?.pn_tag?.nome)
+				.filter((nome) => !!nome) ?? []
+		);
+	}
 	function getNomeRedeSocialById(id) {
 		// Certifique-se de que o tipo de 'id' corresponde ao tipo de 'rede.id_rede_social'
 		const rede = redesSocial.find((rede) => rede.id_rede_social === id);
@@ -213,16 +209,11 @@ configurePortalSidebar('dashboard', translate);
 	}
 
 	function editNoticia() {
-		if(noticiaSelecionada.estado !== "Publicado"){
-			if(noticiaSelecionada.tipo === 0){
-				goto(`/portal_noticias/editar/${noticiaId}`);
-			}else if(noticiaSelecionada.tipo === 1){
-				goto(`/portal_noticias/editarmedia/${noticiaId}`);
-			}
-
+		if (noticiaSelecionada?.tipo === 0) {
+			goto(`/portal_noticias/editar/${noticiaId}`);
+		} else if (noticiaSelecionada?.tipo === 1) {
+			goto(`/portal_noticias/editarmedia/${noticiaId}`);
 		}
-		
-	
 	}
 
 	function deleteNoticia() {
@@ -245,24 +236,6 @@ configurePortalSidebar('dashboard', translate);
 			url: '#',
 			designacao: $t('divNoticias.back'),
 			function: handleBack
-		},
-		{
-			icon_class: 'fas fa-plus',
-			url: '#',
-			designacao: $t('divPublicar.cria'),
-			function: createNoticia
-		},
-		{
-			icon_class: 'fas fa-edit',
-			url: '#',
-			designacao: $t('divNoticias.editar'),
-			function: editNoticia
-		},
-		{
-			icon_class: 'fas fa-trash',
-			url: '#',
-			designacao: $t('divNoticias.excluir'),
-			function: deleteNoticia
 		}
 	]);
 </script>
@@ -271,179 +244,251 @@ configurePortalSidebar('dashboard', translate);
 	<!-- Verifica se noticia não está vazio -->
 	<Breadcrum
 		modulo={sidebarOptions.currentModule}
-		objeto={sidebarOptions.currentObject}
+		objeto={`${sidebarOptions.currentObject} <span class="separator-disc mx-2">&#8226;</span> ${$t(
+			'Titulos.VerNoticia'
+		)}`}
 		menu_items={items_breadcrum}
 	/>
 
-	<div class="noticia-page">
-		<section class="noticia-card">
-			<div class="noticia-header">
-				<div>
-					<p class="label-pill">{$t('divNoticias.noticia')}</p>
-					<h1 class="titulo">{noticiaSelecionada.titulo}</h1>
-					<p class="data">
-						{$t('divNoticias.dataCriacao')}: {formatDate(noticiaSelecionada.data_criacao)}
-					</p>
-				</div>
-				<span class="estado estado-chip {noticiaSelecionada.estado}">
-					{noticiaSelecionada.tipo === 1 && noticiaSelecionada.estado === 'Pendente'
-						? 'Rascunho'
-						: noticiaSelecionada.estado}
-				</span>
-			</div>
+	<div class="tableNews noticia-layout">
+		<div class="row g-4">
+			<div class="col-lg-8">
+				<div class="card-simple">
+					<div class="detail-header">
+						<div>
+							<p class="detail-label-upper">{$t('divNoticias.noticia')}</p>
+							<h2 class="detail-title">{noticiaSelecionada.titulo}</h2>
+							<p class="detail-subtitle">
+								{$t('divNoticias.dataCriacao')}: {formatDate(noticiaSelecionada.data_criacao)}
+							</p>
+						</div>
+						<span
+							class={
+								'badge detail-estado-chip ' +
+								(noticiaSelecionada.estado === 'Publicado'
+									? 'estado-publicado'
+									: noticiaSelecionada.tipo === 1 && noticiaSelecionada.estado === 'Pendente'
+										? 'estado-rascunho'
+										: noticiaSelecionada.estado === 'Pendente'
+											? 'estado-pendente'
+											: 'estado-rascunho')
+							}
+						>
+							{noticiaSelecionada.tipo === 1 && noticiaSelecionada.estado === 'Pendente'
+								? 'Rascunho'
+								: noticiaSelecionada.estado}
+						</span>
+					</div>
 
-			<div class="row g-3 noticia-meta">
-				<div class="col-md-4">
-					<div class="meta-card">
-						<p class="meta-label">{$t('divNoticias.categoria')}</p>
-						<p class="meta-value">{noticiaSelecionada.pn_categoria.nome}</p>
+					<div class="row g-3 mt-2">
+						<div class="col-md-4">
+							<div class="detail-meta-card">
+								<p class="detail-meta-label">{$t('divNoticias.categoria')}</p>
+								<p class="detail-meta-value">{noticiaSelecionada.pn_categoria.nome}</p>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="detail-meta-card">
+								<p class="detail-meta-label">{$t('divNoticias.Pedido')}</p>
+								<p class="detail-meta-value">{pedidoassunto}</p>
+							</div>
+						</div>
+						{#if noticiaSelecionada.tipo === 1}
+							<div class="col-md-4">
+								<div class="detail-meta-card">
+									<p class="detail-meta-label">{$t('divNoticias.Radio_Jornal')}</p>
+									<p class="detail-meta-value">{resultString}</p>
+								</div>
+							</div>
+						{/if}
 					</div>
-				</div>
-				<div class="col-md-4">
-					<div class="meta-card">
-						<p class="meta-label">{$t('divNoticias.Pedido')}</p>
-						<p class="meta-value">{pedidoassunto}</p>
+
+					<hr class="detail-separator" />
+
+					<div>
+						<h5 class="detail-section-title">{$t('divNoticias.Texto')}</h5>
+						<div class="detail-text-wrapper">
+							{#each noticiaSelecionada.texto.split('\n') as paragrafo, index (index)}
+								<p class="detail-text" class:detail-text-lead={index === 0}>{paragrafo}</p>
+							{/each}
+						</div>
 					</div>
+
+					{#if getTagNames().length > 0}
+						<div class="mt-3">
+							<h6 class="detail-small-title">Tags</h6>
+							<div class="detail-tags">
+								{#each getTagNames() as tag}
+									<span class="detail-tag-pill">#{tag}</span>
+								{/each}
+							</div>
+						</div>
+					{/if}
 				</div>
-				{#if noticiaSelecionada.tipo === 1}
-					<div class="col-md-4">
-						<div class="meta-card">
-							<p class="meta-label">{$t('divNoticias.Radio_Jornal')}</p>
-							<p class="meta-value">{resultString}</p>
+
+				{#if noticiaSelecionada.pn_agendamento_rede && noticiaSelecionada.pn_agendamento_rede.length > 0}
+					<div class="card-simple mt-3">
+						<h5 class="detail-section-title mb-3">{$t('divNoticias.agendamentosNoticia')}</h5>
+						<div class="table-responsive">
+							<table class="table table-sm mb-0">
+								<thead>
+									<tr>
+										<th>{$t('divNoticias.rede')}</th>
+										<th>{$t('divNoticias.dataHora')}</th>
+										<th>{$t('divNoticias.fuso')}</th>
+										<th>{$t('divNoticias.estadoAgendamento')}</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each noticiaSelecionada.pn_agendamento_rede as ag}
+										<tr>
+											<td>{getNomeRedeSocialById(ag.id_rede_social)?.nome ?? $t('divNoticias.rede')}</td>
+											<td>{formatDateTime(ag.horario_agendado)}</td>
+											<td>{ag.fuso_horario ?? 'Europe/Lisbon'}</td>
+											<td class="text-capitalize">{ag.status ?? 'pendente'}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
 						</div>
 					</div>
 				{/if}
 			</div>
-		</section>
 
-		<section class="noticia-card">
-			<h4 class="section-title">{$t('divNoticias.Texto')}</h4>
-			<div class="texto-wrapper">
-				{#each noticiaSelecionada.texto.split('\n') as paragrafo, index (index)}
-					<p class="texto">{paragrafo}</p>
-				{/each}
-			</div>
-		</section>
+			<div class="col-lg-4">
+				<div class="card-simple mb-3">
+					<h5 class="detail-section-title mb-2">{$t('divNoticias.anexosTitulo')}</h5>
 
-		<section class="media-grid">
-			{#if noticiaSelecionada.pn_anexos.some((anexo) => anexo.tipo.startsWith('image/'))}
-				<div class="noticia-card media-card">
-					<div class="media-card__header">
-						<h4 class="section-title">Galeria de imagens</h4>
-						<p class="media-counter">
-							Imagem {currentIndex + 1} de {noticiaSelecionada.pn_anexos.filter((anexo) =>
-								anexo.tipo.startsWith('image/')
-							).length}
-						</p>
-					</div>
-					<div class="imagem">
-						<img
-							src={`/ep/portal_noticias/getFileById?id=${
-								noticiaSelecionada.pn_anexos.filter((anexo) => anexo.tipo.startsWith('image/'))[
-									currentIndex
-								].id_anexo
-							}`}
-							alt={
-								noticiaSelecionada.pn_anexos.filter((anexo) => anexo.tipo.startsWith('image/'))[currentIndex]
-									.nome
-							}
-						/>
-					</div>
-					<div class="nav-buttons">
-						<button onclick={previousImage} disabled={currentIndex === 0} class="btn btn-light btn-sm">
-							<i class="fas fa-chevron-left"></i>
-							{$t('divNoticias.anterior') || 'Anterior'}
-						</button>
-						<button
-							onclick={nextImage}
-							disabled={
-								currentIndex ===
-								noticiaSelecionada.pn_anexos.filter((anexo) => anexo.tipo.startsWith('image/')).length - 1
-							}
-							class="btn btn-light btn-sm"
-						>
-							{$t('divNoticias.seguinte') || 'Seguinte'}
-							<i class="fas fa-chevron-right"></i>
-						</button>
-					</div>
-				</div>
-			{/if}
-
-			{#if noticiaSelecionada.pn_anexos.some((anexo) => anexo.tipo.startsWith('video/'))}
-				<div class="noticia-card media-card">
-					<div class="media-card__header">
-						<h4 class="section-title">Vídeos</h4>
-						<p class="media-counter">Vídeo {index + 1} de {getVideos().length}</p>
-					</div>
-					<div class="videos">
-						<video controls bind:this={videoElement}>
-							<source
-								src={`/ep/portal_noticias/getFileById?id=${getVideos()[index].id_anexo}`}
-								type={getVideos()[index].tipo}
-							/>
-							O navegador não suporta a tag de vídeo.
-						</video>
-					</div>
-					<div class="nav-buttons">
-						<button onclick={prevVideo} disabled={index === 0} class="btn btn-light btn-sm">
-							<i class="fas fa-chevron-left"></i>
-							{$t('divNoticias.anterior') || 'Anterior'}
-						</button>
-						<button onclick={nextVideo} disabled={index === getVideos().length - 1} class="btn btn-light btn-sm">
-							{$t('divNoticias.seguinte') || 'Seguinte'}
-							<i class="fas fa-chevron-right"></i>
-						</button>
-					</div>
-				</div>
-			{/if}
-		</section>
-
-		{#if noticiaSelecionada.pn_rs_noticia && noticiaSelecionada.pn_rs_noticia.length > 0}
-			<section class="noticia-card">
-				<p class="section-title mb-3">
-					Pré-visualizar publicação nas Redes Sociais
-				</p>
-				<div class="redes-sociais gap-3">
-					{#each noticiaSelecionada.pn_rs_noticia as rede}
-						<div class="rede-social d-flex align-items-center">
-							<a
-								href={rede.link}
-								target="_blank"
-								onclick={() => handleClick(getNomeRedeSocialById(rede.id_rede_social_FK))}
-								style={getSocialButtonStyle(getNomeRedeSocialById(rede.id_rede_social_FK).nome)}
-								class="rede-button"
-							>
-								<i
-									class={getNomeRedeSocialById(rede.id_rede_social_FK).icone}
-									style="font-size: 1.5em; margin-right: 8px;"
-								></i>
-								{getNomeRedeSocialById(rede.id_rede_social_FK).nome}
-							</a>
+					{#if noticiaSelecionada.pn_anexos.some((anexo) => anexo.tipo.startsWith('image/'))}
+						<div class="detail-media-block mb-3">
+							<div class="d-flex justify-content-between align-items-center mb-2">
+								<span class="detail-small-title mb-0">{$t('divNoticias.imagens')}</span>
+								<small class="text-muted">
+									{$t('divNoticias.imagens')} {currentIndex + 1} / {noticiaSelecionada.pn_anexos.filter((anexo) =>
+										anexo.tipo.startsWith('image/')
+									).length}
+								</small>
+							</div>
+							<div class="detail-image-wrapper mb-2">
+								<img
+									src={`/ep/portal_noticias/getFileById?id=${
+										noticiaSelecionada.pn_anexos.filter((anexo) => anexo.tipo.startsWith('image/'))[
+											currentIndex
+										].id_anexo
+									}`}
+									alt={
+										noticiaSelecionada.pn_anexos.filter((anexo) => anexo.tipo.startsWith('image/'))[
+											currentIndex
+										].nome
+									}
+								/>
+							</div>
+							<div class="d-flex gap-2">
+								<button onclick={previousImage} disabled={currentIndex === 0} class="btn btn-light btn-sm w-100">
+									<i class="fas fa-chevron-left"></i>
+									{$t('divNoticias.anterior') || 'Anterior'}
+								</button>
+								<button
+									onclick={nextImage}
+									disabled={
+										currentIndex ===
+										noticiaSelecionada.pn_anexos.filter((anexo) => anexo.tipo.startsWith('image/')).length - 1
+									}
+									class="btn btn-light btn-sm w-100"
+								>
+									{$t('divNoticias.seguinte') || 'Seguinte'}
+									<i class="fas fa-chevron-right"></i>
+								</button>
+							</div>
 						</div>
-					{/each}
-				</div>
-			</section>
-		{/if}
+					{/if}
 
-		{#if noticiaSelecionada.estado === 'Pendente'}
-			<div class="share-card">
-				<button
-					onclick={publicarNoticia}
-					class="btn btn-success btn-lg px-4"
-					style="background-color: #28a745;"
-				>
-					<i class="fas fa-share-alt me-2" style="font-size: 1.1em;"></i>
-					{$t('divNoticias.publish_message')}
-				</button>
+					{#if noticiaSelecionada.pn_anexos.some((anexo) => anexo.tipo.startsWith('video/'))}
+						<div class="detail-media-block">
+							<div class="d-flex justify-content-between align-items-center mb-2">
+								<span class="detail-small-title mb-0">{$t('divNoticias.videos')}</span>
+								<small class="text-muted">
+									{$t('divNoticias.videos')} {index + 1} / {getVideos().length}
+								</small>
+							</div>
+							<div class="detail-video-wrapper mb-2">
+								<video controls bind:this={videoElement}>
+									<source
+										src={`/ep/portal_noticias/getFileById?id=${getVideos()[index].id_anexo}`}
+										type={getVideos()[index].tipo}
+									/>
+									{$t('common.video_not_supported') || 'Your browser does not support the video tag.'}
+								</video>
+							</div>
+							<div class="d-flex gap-2">
+								<button onclick={prevVideo} disabled={index === 0} class="btn btn-light btn-sm w-100">
+									<i class="fas fa-chevron-left"></i>
+									{$t('divNoticias.anterior') || 'Anterior'}
+								</button>
+								<button
+									onclick={nextVideo}
+									disabled={index === getVideos().length - 1}
+									class="btn btn-light btn-sm w-100"
+								>
+									{$t('divNoticias.seguinte') || 'Seguinte'}
+									<i class="fas fa-chevron-right"></i>
+								</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				{#if noticiaSelecionada.pn_rs_noticia && noticiaSelecionada.pn_rs_noticia.length > 0}
+					<div class="card-simple">
+						<h5 class="detail-section-title mb-3">
+							{$t('divNoticias.previewRedes')}
+						</h5>
+						<div class="detail-socials">
+							{#each noticiaSelecionada.pn_rs_noticia as rede}
+								<div class="detail-social-row">
+									<button
+										type="button"
+										class="btn btn-outline-light detail-social-button"
+										onclick={() => handleClick(getNomeRedeSocialById(rede.id_rede_social_FK))}
+										style={getSocialButtonStyle(getNomeRedeSocialById(rede.id_rede_social_FK).nome)}
+									>
+										<div class="detail-social-main">
+											<div class="detail-social-title">
+												<i
+													class={getNomeRedeSocialById(rede.id_rede_social_FK).icone}
+													style="font-size: 1.1em; margin-right: 6px;"
+												></i>
+												{getNomeRedeSocialById(rede.id_rede_social_FK).nome}
+											</div>
+											<p class="detail-social-snippet">
+												{#if getNomeRedeSocialById(rede.id_rede_social_FK).nome === 'Facebook'}
+													{noticiaSelecionada.texto_facebook || '-'}
+												{:else if getNomeRedeSocialById(rede.id_rede_social_FK).nome === 'Twitter'}
+													{noticiaSelecionada.texto_twitter || '-'}
+												{:else if getNomeRedeSocialById(rede.id_rede_social_FK).nome === 'Instagram'}
+													{noticiaSelecionada.texto_instagram || '-'}
+												{:else if getNomeRedeSocialById(rede.id_rede_social_FK).nome === 'LinkedIn'}
+													{noticiaSelecionada.texto_linkedin || '-'}
+												{:else}
+													-
+												{/if}
+											</p>
+										</div>
+									</button>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
 			</div>
-		{/if}
+		</div>
 	</div>
 
 	<Modal
 		title="{selectedSocialNetwork} - Pré-visualização nas Redes Sociais"
 		open={showPopup}
 		onClosed={(data) => {
-			onPopupClose(data);
+			showPopup = false;
 		}}
 	>
 		{#if selectedSocialNetwork === 'Facebook'}
@@ -457,14 +502,6 @@ configurePortalSidebar('dashboard', translate);
 		{:else if selectedSocialNetwork === 'Tiktok'}
 			<TiktokPreview {noticiaSelecionada} />
 		{/if}
-	</Modal>
-	<!-- Publish Modal -->
-	<Modal
-		title={$t('divNoticias.publicarNoticia')}
-		open={showPublish}
-		onClosed={(data) => onPopupClose(data)}
-	>
-		<PublicarNoticia {noticiaSelecionada} {redesSocial} />
 	</Modal>
 
 	<!-- Remove Modal -->
@@ -483,192 +520,187 @@ configurePortalSidebar('dashboard', translate);
 
 <style>
 	@import "../../portal_noticias.css";
-	.noticia-page {
-		display: flex;
-		flex-direction: column;
-		gap: 1.5rem;
+
+	.noticia-layout {
+		margin-top: 16px;
+		padding-bottom: 16px;
 	}
 
-	.noticia-card {
-		background-color: #fff;
-		border: 1px solid #e6e9ed;
-		border-radius: 8px;
-		padding: 1.5rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+	.card-simple {
+		border: 1px solid #dde3ea;
+		border-radius: 10px;
+		padding: 16px;
+		background: #fff;
 	}
 
-	.noticia-header {
+	.detail-header {
 		display: flex;
 		justify-content: space-between;
-		gap: 1rem;
 		align-items: flex-start;
+		gap: 12px;
 		flex-wrap: wrap;
 	}
 
-	.estado-chip {
-		padding: 0.35rem 0.9rem;
-		border-radius: 999px;
-		font-weight: 600;
-		font-size: 0.95rem;
-		text-transform: capitalize;
-	}
-
-	.label-pill {
-		font-size: 0.75rem;
+	.detail-label-upper {
+		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
-		color: #6c757d;
-		margin-bottom: 0.5rem;
+		color: #6c7a89;
+		margin-bottom: 2px;
 	}
 
-	.titulo {
-		font-size: 1.8rem;
+	.detail-title {
+		font-size: 1.6rem;
 		font-weight: 700;
-		margin-bottom: 0.4rem;
-	}
-
-	.data {
-		font-size: 0.95rem;
-		color: #6c757d;
-		margin-bottom: 0;
-	}
-
-	.noticia-meta .meta-card {
-		background-color: #f8f9fa;
-		border-radius: 6px;
-		padding: 0.75rem 1rem;
-		height: 100%;
-	}
-
-	.meta-label {
-		font-size: 0.8rem;
-		text-transform: uppercase;
-		color: #6c757d;
-		margin-bottom: 0.25rem;
-		letter-spacing: 0.05em;
-	}
-
-	.meta-value {
-		font-size: 1rem;
-		font-weight: 600;
+		margin: 0 0 4px;
 		color: #212529;
-		margin: 0;
-		word-break: break-word;
 	}
 
-	.section-title {
-		font-size: 1.1rem;
-		font-weight: 600;
-		color: #212529;
-		margin-bottom: 0.75rem;
-	}
-
-	.texto-wrapper {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.texto {
-		font-size: 1rem;
-		line-height: 1.6;
-		color: #343a40;
-		margin: 0;
-	}
-
-	.media-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-		gap: 1.25rem;
-	}
-
-	.media-card__header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		margin-bottom: 0.75rem;
-	}
-
-	.media-counter {
+	.detail-subtitle {
 		font-size: 0.9rem;
 		color: #6c757d;
 		margin: 0;
 	}
 
-	.imagem img,
-	.videos video {
-		width: 100%;
-		border-radius: 6px;
-		object-fit: cover;
+	.detail-estado-chip {
+		padding: 0.25rem 0.75rem;
+		border-radius: 999px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		align-self: flex-start;
 	}
 
-	.nav-buttons {
+	.detail-meta-card {
+		background-color: #f7f9fc;
+		border-radius: 8px;
+		padding: 8px 12px;
+		height: 100%;
+	}
+
+	.detail-meta-label {
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		color: #6c7a89;
+		margin-bottom: 2px;
+		letter-spacing: 0.05em;
+	}
+
+	.detail-meta-value {
+		font-size: 0.95rem;
+		font-weight: 600;
+		color: #212529;
+		margin: 0;
+	}
+
+	.detail-separator {
+		margin: 14px 0;
+		border-top: 1px solid #e3e9f0;
+	}
+
+	.detail-section-title {
+		font-size: 1rem;
+		font-weight: 600;
+		margin-bottom: 6px;
+	}
+
+	.detail-text-wrapper {
 		display: flex;
-		justify-content: space-between;
-		gap: 0.75rem;
-		margin-top: 1rem;
+		flex-direction: column;
+		gap: 6px;
 	}
 
-	.nav-buttons .btn {
-		flex: 1;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.4rem;
+	.detail-text {
+		margin: 0;
+		font-size: 0.96rem;
+		line-height: 1.6;
+		color: #343a40;
 	}
 
-	.redes-sociais {
+	.detail-text-lead {
+		font-weight: 600;
+		font-size: 1rem;
+	}
+
+	.detail-small-title {
+		font-size: 0.85rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		color: #6c7a89;
+		letter-spacing: 0.06em;
+	}
+
+	.detail-tags {
 		display: flex;
 		flex-wrap: wrap;
-		padding: 0.5rem;
-		background-color: #f8f9fa;
-		border-radius: 8px;
+		gap: 6px;
 	}
 
-	.rede-social {
-		display: flex;
-		align-items: center;
-	}
-
-	.rede-button {
+	.detail-tag-pill {
 		display: inline-flex;
 		align-items: center;
-		justify-content: center;
-		padding: 0.6rem 1rem;
-		font-weight: 600;
-		text-decoration: none;
+		padding: 2px 8px;
 		border-radius: 999px;
-		font-size: 0.95rem;
-		background-color: #fff;
-		box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
-		transition: transform 0.2s ease, box-shadow 0.2s ease;
+		background-color: #e9f5ff;
+		color: #0069d9;
+		font-size: 0.8rem;
 	}
 
-	.rede-button:hover {
-		transform: translateY(-1px);
-		box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
-		text-decoration: none;
+	.detail-media-block {
+		border-top: 1px solid #e3e9f0;
+		padding-top: 8px;
 	}
 
-	.share-card {
+	.detail-image-wrapper img,
+	.detail-video-wrapper video {
+		width: 100%;
+		border-radius: 6px;
+	}
+
+	.detail-socials {
 		display: flex;
-		justify-content: center;
-		align-items: center;
-		padding: 1.5rem;
-		background-color: #fff;
-		border: 1px solid #e6e9ed;
-		border-radius: 8px;
+		flex-direction: column;
+		gap: 6px;
 	}
 
-	@media (max-width: 768px) {
-		.noticia-header {
-			flex-direction: column;
-			align-items: flex-start;
-		}
+	.detail-social-button {
+		width: 100%;
+		justify-content: flex-start;
+		border-color: #dde3ea;
+		color: #3f4d5a;
+		background-color: #fff;
+		padding-top: 8px;
+		padding-bottom: 8px;
+	}
 
-		.media-grid {
-			grid-template-columns: 1fr;
-		}
+	.detail-social-button:hover {
+		background-color: #f7f9fc;
+	}
+
+	.detail-social-row {
+		display: flex;
+	}
+
+	.detail-social-main {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.detail-social-title {
+		display: flex;
+		align-items: center;
+		font-weight: 600;
+		margin-bottom: 2px;
+	}
+
+	.detail-social-snippet {
+		margin: 0;
+		font-size: 0.8rem;
+		color: #6c757d;
+		max-height: 2.8em;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 </style>

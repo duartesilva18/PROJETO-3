@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TwitterApi } from 'twitter-api-v2';
 import axios from 'axios';
@@ -7,7 +7,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as ffmpeg from 'fluent-ffmpeg'; 
 
 @Injectable()
-export class TwitterService {
+export class TwitterService implements OnModuleInit {
   private clientV1: TwitterApi;
   private clientV2: TwitterApi;
 
@@ -27,6 +27,14 @@ export class TwitterService {
       accessToken: this.configService.get<string>('TWITTER_ACCESS_TOKEN'),
       accessSecret: this.configService.get<string>('TWITTER_ACCESS_TOKEN_SECRET'),
     });
+  }
+
+  async onModuleInit() {
+    try {
+      await this.logContaAssociada();
+    } catch (error) {
+      console.warn('Não foi possível obter a conta do Twitter no arranque:', error.message);
+    }
   }
 
   private isValidGuid(guid: string): boolean {
@@ -164,7 +172,25 @@ export class TwitterService {
   }
 
   
+	async logContaAssociada() {
+		try {
+			const me = await this.clientV1.currentUser();
+			const username = me.screen_name ?? 'desconhecido';
+			const name = me.name ?? username;
+			const id = me.id_str ?? me.id;
 
+			console.log(`[TwitterService] Conta autenticada: @${username} (${name})`);
+
+			return { id, username, name };
+		} catch (error) {
+			console.error('Erro ao obter conta autenticada do Twitter:', error);
+			throw new Error(
+				`Não foi possível identificar a conta do Twitter: ${
+					error.response?.data?.errors?.[0]?.message || error.message
+				}`,
+			);
+		}
+	}
 
   private async uploadMediaVideo(videoPath: string, mimeType: string, mediaCategory = 'tweet_video'): Promise<string> {
     const fs = require('fs');
