@@ -137,7 +137,12 @@ export class NoticiaDto {
   @IsInt()
   @Type(() => Number)
   tipo?: number;
-  
 
-
+  @ApiProperty({
+    description: 'Configuração específica por rádio/jornal (opcional)',
+    example: [{ id_radio_jornal: 'uuid', texto_custom: 'texto específico' }],
+  })
+  @IsArray()
+  @IsOptional()
+  noticia_radio_jornal?: any[];
 }

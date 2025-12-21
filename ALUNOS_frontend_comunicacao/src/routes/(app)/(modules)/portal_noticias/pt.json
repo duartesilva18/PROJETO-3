@@ -181,16 +181,23 @@
         "confirmDeleteConfirm": "Eliminar",
         "confirmDeleteCancel": "Cancelar"
     },
+    "divMidia": {
+        "titulo": "Listagem de Mídia",
+        "subtitulo": "Em desenvolvimento: aqui ficará a listagem/gestão de mídia (jornais, rádios, etc.)."
+    },
     "sidebarPortal": {
         "module": "Portal de Notícias",
-        "area": "Gestão de Notícias",
+        "area": "Gestao de Noticias",
+        "areaNoticias": "Gestao de Noticias",
+        "areaMidia": "Gestao de Midia",
         "dashboard": "Listar Notícias",
-        "categorias": "Categorias",
-        "tags": "Tags",
-        "agendamentos": "Agendamentos",
+        "categorias": "Listar Categorias",
+        "tags": "Listar Tags",
+        "agendamentos": "Gestao de Agendamentos",
         "criar": "Criar Notícia",
+        "midiaList": "Listagem de Midia",
         "criarMedia": "Criar Notícia Media",
         "radios": "Rádios & Jornais"
     }
-   
+
 }

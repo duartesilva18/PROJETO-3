@@ -175,14 +175,21 @@
         "confirmDeleteConfirm": "Delete",
         "confirmDeleteCancel": "Cancel"
     },
+    "divMidia": {
+        "titulo": "Media Listing",
+        "subtitulo": "In development: this page will show and manage media (newspapers, radios, etc.)."
+    },
     "sidebarPortal": {
         "module": "News Portal",
         "area": "News Management",
+        "areaNoticias": "News Management",
+        "areaMidia": "Media Management",
         "dashboard": "News List",
-        "categorias": "Categories",
-        "tags": "Tags",
-        "agendamentos": "Schedules",
+        "categorias": "Categories list",
+        "tags": "Tags list",
+        "agendamentos": "Schedules Management",
         "criar": "Create News",
+        "midiaList": "Media Listing",
         "criarMedia": "Create Media News",
         "radios": "Radios & Newspapers"
     }

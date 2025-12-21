@@ -117,11 +117,16 @@ export class NoticiasService {
   }
 
   async createNoticias(dto: NoticiaDto) {
-    // tratar id_pedido e tipo como numbers
-    const hasIdPedido =
-      typeof dto.id_pedido === 'number' && Number.isFinite(dto.id_pedido);
-    const hasTipo =
-      typeof dto.tipo === 'number' && Number.isFinite(dto.tipo);
+    // tratar id_pedido e tipo como numbers (aceita string "1" ou number 1)
+    const parsedIdPedido =
+      dto.id_pedido !== undefined && dto.id_pedido !== null
+        ? Number(dto.id_pedido)
+        : NaN;
+    const parsedTipo =
+      dto.tipo !== undefined && dto.tipo !== null ? Number(dto.tipo) : NaN;
+
+    const hasIdPedido = Number.isFinite(parsedIdPedido);
+    const hasTipo = Number.isFinite(parsedTipo);
 
     return this.prisma.$transaction(async (tx) => {
       return tx.pn_noticia.create({
@@ -135,8 +140,8 @@ export class NoticiasService {
           texto_tiktok: dto.texto_tiktok,
           estado: dto.estado,
           emails: dto.emails,
-          ...(hasIdPedido ? { id_pedido: dto.id_pedido } : {}),
-          ...(hasTipo ? { tipo: dto.tipo } : {}),
+          ...(hasIdPedido ? { id_pedido: parsedIdPedido } : {}),
+          ...(hasTipo ? { tipo: parsedTipo } : {}),
           pn_categoria: {
             connect: { id_categoria: dto.id_categoria_FK }
           },
@@ -222,10 +227,15 @@ export class NoticiasService {
       return { message: 'Notícia não encontrada' };
     }
 
-    const hasIdPedido =
-      typeof dto.id_pedido === 'number' && Number.isFinite(dto.id_pedido);
-    const hasTipo =
-      typeof dto.tipo === 'number' && Number.isFinite(dto.tipo);
+    const parsedIdPedido =
+      dto.id_pedido !== undefined && dto.id_pedido !== null
+        ? Number(dto.id_pedido)
+        : NaN;
+    const parsedTipo =
+      dto.tipo !== undefined && dto.tipo !== null ? Number(dto.tipo) : NaN;
+
+    const hasIdPedido = Number.isFinite(parsedIdPedido);
+    const hasTipo = Number.isFinite(parsedTipo);
 
     try {
       const updatedNoticia = await this.prisma.pn_noticia.update({
@@ -240,8 +250,8 @@ export class NoticiasService {
           texto_tiktok: dto.texto_tiktok,
           estado: dto.estado,
           emails: dto.emails,
-          ...(hasIdPedido ? { id_pedido: dto.id_pedido } : { id_pedido: null }),
-          ...(hasTipo ? { tipo: dto.tipo } : { tipo: null }),
+          ...(hasIdPedido ? { id_pedido: parsedIdPedido } : { id_pedido: null }),
+          ...(hasTipo ? { tipo: parsedTipo } : { tipo: null }),
           pn_categoria: {
             connect: { id_categoria: dto.id_categoria_FK }
           },

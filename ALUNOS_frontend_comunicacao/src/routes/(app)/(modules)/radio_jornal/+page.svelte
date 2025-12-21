@@ -8,13 +8,10 @@ import RemoveModal from './RemoverMediaModal.svelte';
 import { configurePortalSidebar } from '../portal_noticias/sidebar.config.js';
 import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-
-	import { get } from 'svelte/store';
-	import * as dt_pt from '$lib/translations/pt/datatables.json';
-	import * as dt_en from '$lib/translations/en/datatables.json';
-
+import { onMount } from 'svelte';
+import { goto } from '$app/navigation';
+import * as dt_pt from '$lib/translations/pt/datatables.json';
+import * as dt_en from '$lib/translations/en/datatables.json';
 import diacriticless from 'diacriticless';
 import { writable, get } from 'svelte/store';
 

@@ -1,13 +1,12 @@
 <script>
-	import { goto } from '$app/navigation';
+import { goto } from '$app/navigation';
 import Breadcrum from '$lib/components/Breadcrum.svelte';
 import { onMount } from 'svelte';
 import SuccesModal from '../noticia/[id]/modals/SuccesModal.svelte';
-import { locale, t } from "$lib/translations/translations";
+import { locale, t } from '$lib/translations/translations';
 import { configurePortalSidebar } from '../sidebar.config.js';
 import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 import { get } from 'svelte/store';
-  import "select2";
 
 	
 
@@ -105,13 +104,11 @@ configurePortalSidebar('criarMedia', translate);
 	 */
 	let pedidos = $state([]);
 
+  // ids selecionados no select de rádios/jornais
+  let selectedradiosjornais = $state([]);
 
-    let selectedradiosjornais = [];
-
-  /**
-	 * @type {Array}
-	 */
-   let selectedradiosjornaisnomes = $state([]);
+  // mapa id_radio_jornal -> texto personalizado (frontend apenas)
+  let radioTexts = $state({});
 
 
 
@@ -120,22 +117,27 @@ configurePortalSidebar('criarMedia', translate);
 	 * Esta função é assíncrona para permitir a busca de dados.
 	 */
 	onMount(async () => {
-		redesSociais = await fetch('/ep/portal_noticias/redes').then(d => d.json())
+		redesSociais = await fetch('/ep/portal_noticias/redes').then((d) => d.json());
 
-		categorias = await fetch('/ep/portal_noticias/categorias').then(d => d.json())
+		categorias = await fetch('/ep/portal_noticias/categorias').then((d) => d.json());
 
-		tags = await fetch('/ep/portal_noticias/tags').then(d => d.json())
-	
-    pedidos = await fetch('/ep/portal_noticias/getJson').then(d => d.json())
+		tags = await fetch('/ep/portal_noticias/tags').then((d) => d.json());
 
-    radio_jornal = await fetch('/ep/portal_noticias/radio_jornal').then(d => d.json())
+		pedidos = await fetch('/ep/portal_noticias/getJson').then((d) => d.json());
 
-    jQuery("#unidinvestigacao").select2(); // Usa globalThis.$ para evitar erro
-    jQuery("#unidinvestigacao").on("change", selecionarRadioJornal);
+		radio_jornal = await fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json());
 
-    jQuery(".select2-single-multi").select2({ theme: "bootstrap", language: (locale.get() == "pt" ? "pt" : "en") })
-
-  });
+		// usar jQuery global apenas se select2 estiver carregado; caso contrário fica como select normal
+		const jq = globalThis.$ ?? globalThis.jQuery;
+		if (jq?.fn?.select2) {
+			jq('#unidinvestigacao').select2();
+			jq('#unidinvestigacao').on('change', selecionarRadioJornal);
+			jq('.select2-single-multi').select2({
+				theme: 'bootstrap',
+				language: locale.get() == 'pt' ? 'pt' : 'en'
+			});
+		}
+	});
 
   
 
@@ -161,14 +163,33 @@ configurePortalSidebar('criarMedia', translate);
 
 
   function selecionarRadioJornal(event) {
-    console.log("Select2 - Função chamada!");
-    selectedradiosjornais = globalThis.$(event.target).val() || [];
-    console.log("selectedradiosjornais:", selectedradiosjornais);
+    const selectEl = event?.target;
+    if (!selectEl) return;
+
+    // tenta primeiro pela API normal do <select>
+    if (selectEl.selectedOptions && selectEl.selectedOptions.length >= 0) {
+      const options = selectEl.selectedOptions;
+      selectedradiosjornais = Array.from(options).map((opt) => opt.value);
+    } else {
+      // fallback caso esteja a ser controlado pelo select2 / jQuery
+      const jq = globalThis.$ ?? globalThis.jQuery;
+      if (jq) {
+        selectedradiosjornais = jq(selectEl).val() || [];
+      }
+    }
+
+    console.log('selectedradiosjornais:', selectedradiosjornais);
   }
 
   function removerRadioJornal(id) {
-    selectedradiosjornais = selectedradiosjornais.filter(rj => rj !== id);
-    console.log("selectedradiosjornais:", selectedradiosjornais);
+    selectedradiosjornais = selectedradiosjornais.filter((rj) => rj !== id);
+    // limpar também eventual texto custom associado
+    if (radioTexts[id]) {
+      const clone = { ...radioTexts };
+      delete clone[id];
+      radioTexts = clone;
+    }
+    console.log('selectedradiosjornais:', selectedradiosjornais);
   }
 
   function getNomeById(id) {
@@ -176,9 +197,96 @@ configurePortalSidebar('criarMedia', translate);
     return item ? item.nome : "Desconhecido";
   }
 
+  // Chama o backend para gravar textos personalizados de mídia (sem imagens)
+  async function saveMidiaPersonalizada(idNoticiaCreated) {
+    const items = selectedradiosjornais.map((id) => ({
+      id_radio_jornal: id,
+      texto_custom: radioTexts[id] ?? ''
+    }));
 
+    const payload = {
+      id_noticia: idNoticiaCreated,
+      items
+    };
 
- 
+    try {
+      await fetch('/ep/portal_noticias/midia_personalizada', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.error('Erro ao guardar personalizações de mídia (ignorado):', e);
+      // Não bloqueia o fluxo principal
+    }
+  }
+
+  // Guarda, na nova tabela, as imagens associadas a cada rádio/jornal (pode haver várias)
+  async function saveMidiaAnexos(idNoticiaCreated, anexosUploaded) {
+    const mapa = {};
+
+    anexos.forEach((file, idx) => {
+      const radios = Array.isArray(file.radios) ? file.radios : [];
+      // @ts-ignore
+      const uploaded = Array.isArray(anexosUploaded) ? anexosUploaded[idx] : null;
+
+      if (!uploaded || !uploaded.id_anexo || radios.length === 0) return;
+
+      radios.forEach((idRadio) => {
+        if (!mapa[idRadio]) {
+          mapa[idRadio] = [];
+        }
+        mapa[idRadio].push(uploaded.id_anexo);
+      });
+    });
+
+    const items = Object.entries(mapa).map(([id_radio_jornal, ids_anexos]) => ({
+      id_radio_jornal,
+      // @ts-ignore
+      ids_anexos
+    }));
+
+    const payload = {
+      id_noticia: idNoticiaCreated,
+      items
+    };
+
+    try {
+      await fetch('/ep/portal_noticias/midia_anexos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.error('Erro ao guardar anexos por rádio/jornal (ignorado):', e);
+    }
+  }
+
+  function setRadioTexto(id, value) {
+    const trimmed = value ?? '';
+    radioTexts = { ...radioTexts, [id]: trimmed };
+  }
+
+  function toggleFileRadio(fileIndex, radioId, checked) {
+    const file = anexos[fileIndex];
+    let radios = Array.isArray(file.radios) ? file.radios : [];
+
+    if (checked) {
+      if (!radios.includes(radioId)) {
+        radios = [...radios, radioId];
+      }
+    } else {
+      radios = radios.filter((id) => id !== radioId);
+    }
+
+    file.radios = radios;
+    anexos = [...anexos];
+  }
+
 
 	function getSelectedSocialNetworks() {
 		return redesSociais.filter((redeSocial) => redeSocial.checked);
@@ -317,13 +425,19 @@ configurePortalSidebar('criarMedia', translate);
 
 
       // 5) POST noticia data
-      const id_noticia = await fetch('/ep/portal_noticias/dados', {
+      const resposta = await fetch('/ep/portal_noticias/dados', {
         method: 'POST',
         body: formData
       });
 
+      const noticiaCriada = await resposta.json();
+      const id_noticia = noticiaCriada?.id_noticia;
+
       if (!id_noticia) {
-        console.error('Não foi possível obter a id_noticia para enviar os anexos.');
+        console.error('Não foi possível obter a id_noticia para personalizações de mídia.');
+      } else {
+        await saveMidiaPersonalizada(id_noticia);
+        await saveMidiaAnexos(id_noticia, anexosUploaded);
       }
 
       // 6) Clean up & success message
@@ -333,7 +447,8 @@ configurePortalSidebar('criarMedia', translate);
         'SUCESSO!',
         { timeOut: 5000, progressBar: true }
       );
-      goto('/portal_noticias');
+      // depois de criar mídia, voltar para a listagem de mídia
+      goto('/portal_noticias/midia');
 
     } catch (error) {
       toastr.error(
@@ -341,7 +456,8 @@ configurePortalSidebar('criarMedia', translate);
         'ERRO!',
         { timeOut: 5000, progressBar: true }
       );
-      goto('/portal_noticias');
+      // em caso de erro, mantemos no módulo de mídia
+      goto('/portal_noticias/midia');
     }
   }
 	/**
@@ -362,23 +478,38 @@ configurePortalSidebar('criarMedia', translate);
 	function handleFileChange(event) {
     const files = event.target.files;
     anexos = [...anexos];
-    console.log('aqui handleFileChange');
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
+    const rejectedNames = [];
+
     for (let i = 0; i < files.length; i++) {
-        const fileUrl = URL.createObjectURL(files[i]);
-        files[i].url = fileUrl;
+        const file = files[i];
 
-        // STEP 1-A: Initialize an empty array for per-file networks
-        files[i].redes = []; // <--- This is new
-     
+        if (!allowedTypes.includes(file.type)) {
+          rejectedNames.push(file.name);
+          continue;
+        }
 
-        anexos.push(files[i]);
+        const fileUrl = URL.createObjectURL(file);
+        file.url = fileUrl;
+
+        // Inicializa arrays para redes sociais e rádios/jornais ligados a este ficheiro
+        file.redes = [];
+        file.radios = [];
+
+        anexos.push(file);
+    }
+
+    if (rejectedNames.length > 0 && typeof toastr !== 'undefined') {
+      toastr.warning(
+        `Alguns ficheiros foram ignorados por não serem suportados (apenas JPG, PNG, GIF, MP4): ${rejectedNames.join(', ')}`,
+        'Formato não suportado',
+        { timeOut: 5000, progressBar: true }
+      );
     }
 
     // Atualizar a variável filescopy com os arquivos adicionados
-    filescopy = [...files]; // Faz uma cópia dos arquivos
-
-    // Exibir no console o estado de filescopy
-    console.log('filescopy atualizado:', filescopy);
+    filescopy = [...anexos]; // Faz uma cópia dos arquivos válidos
 }
 
 
@@ -506,7 +637,7 @@ configurePortalSidebar('criarMedia', translate);
 
 
 
-  .texto-input {
+.texto-input {
   height: 200px; /* Doubled size for text input */
   resize: vertical; /* Allows manual resizing */
 }
@@ -516,6 +647,56 @@ configurePortalSidebar('criarMedia', translate);
   color: gray;
   margin-bottom: 5px; /* Moves counter closer to input */
   text-align: right; /* Aligns counter to the right */
+}
+
+.file-upload-wrapper {
+  width: 100%;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.file-drop-zone {
+  border: 2px dashed #cfd6dd;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  background: #f9fbfd;
+  color: #7fa0b5;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.file-drop-zone:hover,
+.file-drop-zone.active {
+  border-color: #c2c7d0;
+  background: #edf0f3;
+}
+
+.file-drop-zone-icon {
+  font-size: 32px;
+  color: #a0adba;
+  margin-bottom: 8px;
+}
+
+.file-drop-zone-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.file-drop-zone-subtitle {
+  font-size: 13px;
+  color: #9aa9b8;
+}
+
+.file-preview-thumb {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 10px;
 }
 
 </style>
@@ -562,19 +743,34 @@ configurePortalSidebar('criarMedia', translate);
 
         <div class="form-group">
           <label>{$t('divPublicar.Email')}:<span style="color: red;">*</span></label>
-        
-        
-        
           <select 
             name="investigation_unit_id" 
             id="unidinvestigacao" 
             class="form-control select2-single-multi" 
             multiple
+            onchange={selecionarRadioJornal}
           >
             {#each radio_jornal as rj}
               <option value={rj.id_radio_jornal}>{rj.nome}</option>
             {/each}
           </select>
+
+          {#if selectedradiosjornais.length > 0}
+            <div class="mt-3">
+              {#each selectedradiosjornais as id (id)}
+                <div class="mb-3">
+                  <label class="form-label small">
+                    Texto personalizado para {getNomeById(id)} (opcional)
+                  </label>
+                  <textarea
+                    class="form-control"
+                    rows="2"
+                    oninput={(e) => setRadioTexto(id, e.target.value)}
+                  >{radioTexts[id] ?? ''}</textarea>
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
         
         
@@ -600,62 +796,83 @@ configurePortalSidebar('criarMedia', translate);
 
         <div class="form-group">
           <label for="fileInput">{$t('divPublicar.Anexos')}:</label>
-          <input
-            class="form-control file-input"
-            type="file"
-            id="fileInput"
-            name="fileInput"
-            placeholder={$t('divPublicar.inAnexos')}  
-            onchange={(event) => handleFileChange(event)}
-            multiple
-          />
-          {#if anexos.length > 0}
-          <div class="selected-files mt-3" style="max-width: 600px; margin: 0 auto;">
-            <label for="fileInput" class="form-label">{$t('divPublicar.sAnexos')}:</label>
+          <div class="file-upload-wrapper">
+            <input
+              class="file-input-hidden"
+              type="file"
+              id="fileInput"
+              name="fileInput"
+              accept=".jpg,.jpeg,.png,.gif,.mp4"
+              onchange={(event) => handleFileChange(event)}
+              multiple
+            />
+            <div
+              class="file-drop-zone"
+              onclick={() => document.getElementById('fileInput')?.click()}
+              role="button"
+              tabindex="0"
+              aria-label={$t('divPublicar.dropTitle')}
+            >
+              <i class="fas fa-upload file-drop-zone-icon" aria-hidden="true"></i>
+              <p class="file-drop-zone-title">
+                {$t('divPublicar.dropTitle')}
+              </p>
+              <span class="file-drop-zone-subtitle">
+                {$t('divPublicar.dropSubtitle')}
+              </span>
+            </div>
+          </div>
 
-            {#each anexos as file, index (file)}
-              <div
-                  class="selected-file d-flex justify-content-between align-items-center mt-2 p-2 border rounded"
+          {#if anexos.length > 0}
+            <div class="selected-files mt-3" style="max-width: 600px; margin: 0 auto;">
+              <label for="fileInput" class="form-label">{$t('divPublicar.sAnexos')}:</label>
+
+              {#each anexos as file, index (file)}
+                <div
+                  class="selected-file mt-2 p-2 border rounded"
                   id="sFile-{index}"
                   style="background-color: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"
                 >
-                  <!-- Preview + link -->
-                  <div class="d-flex align-items-center">
-                    {#if file.type && file.type.startsWith('image/')}
-                      <img src={file.url} alt={file.name} class="file-preview-thumb" />
-                    {/if}
-                    <a href={file.url} target="_blank" class="file-link d-flex align-items-center text-decoration-none">
-                      <i class="fas fa-file-alt me-2 text-primary"
-                        style="margin-right: 10px; font-size: 1.2em;"></i>
-                      {file.name}
-                    </a>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                      {#if file.type && file.type.startsWith('image/')}
+                        <img src={file.url} alt={file.name} class="file-preview-thumb" />
+                      {/if}
+                      <a href={file.url} target="_blank" class="file-link d-flex align-items-center text-decoration-none">
+                        <i
+                          class="fas fa-file-alt me-2 text-primary"
+                          style="margin-right: 10px; font-size: 1.2em;"
+                        ></i>
+                        {file.name}
+                      </a>
+                    </div>
+                    <button
+                      type="button"
+                      onclick={() => removeFile(index)}
+                      class="btn btn-sm btn-outline-danger"
+                      style="display: flex; align-items: center; justify-content: center;"
+                    >
+                      <i class="fa fa-trash"></i>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onclick={() => removeFile(index)}
-                    class="btn btn-sm btn-outline-danger"
-                    style="display: flex; align-items: center; justify-content: center;"
-                  >
-                    <i class="fa fa-trash"></i>
-                  </button>
 
-                  
-
-
-                  <!-- New: Checkboxes for each network -->
-                  
+                  {#if selectedradiosjornais.length > 0}
+                    <div class="mt-2">
+                      {#each selectedradiosjornais as idRj}
+                        <label class="me-3" style="font-size: 12px;">
+                          <input
+                            type="checkbox"
+                            checked={Array.isArray(file.radios) && file.radios.includes(idRj)}
+                            onchange={(e) => toggleFileRadio(index, idRj, e.target.checked)}
+                          />
+                          {getNomeById(idRj)}
+                        </label>
+                      {/each}
+                    </div>
+                  {/if}
                 </div>
-
-                
-
-                <!-- Optional: Show selected networks for the file -->
-                {#if file.redes.length > 0}
-                  <p style="margin-left: 40px;">
-                    <strong>Selected networks:</strong> {file.redes.join(', ')}
-                  </p>
-                {/if}
-            {/each}
-          </div>
+              {/each}
+            </div>
           {/if}
 
           <div class="col-md-12 text-md-right">

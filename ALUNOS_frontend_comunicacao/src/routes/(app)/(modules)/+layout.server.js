@@ -43,10 +43,30 @@ export const load = async ({ depends, locals, cookies }) => {
         })
     };
 
+    // Filtrar módulos para não mostrar o módulo de exemplos na navbar
+    if (Array.isArray(sidebar_modulos)) {
+        sidebar_modulos = sidebar_modulos.filter((md) => {
+            const path = md.path || '';
+            const prefixo = md.prefixo || '';
+            const desc = (md.descricao || '').toString().toLowerCase();
+
+            // qualquer módulo cujo path ou prefixo contenha "exemplos" é escondido
+            if (path.includes('exemplos') || prefixo.includes('exemplos') || desc.includes('exemplo')) {
+                return false;
+            }
+
+            return true;
+        });
+    }
+
     //
     // AREAS
     //
     let sidebar_areas = [];
+    const rawModId = parseInt(cookies.get("modid") || "0");
+    // força a usar o módulo do Portal de Notícias em vez do módulo de exemplos (id 1)
+    const effectiveModId = rawModId === 1 ? 2 : rawModId;
+
     sidebar_areas = await fetch(PUBLIC_API_URL + "objetos", {
         method: "POST",
         headers: {
@@ -57,7 +77,7 @@ export const load = async ({ depends, locals, cookies }) => {
         body: JSON.stringify({
             // @ts-ignore
             id_utilizador: locals?.info_utili.id_utilizador,
-            id_modulo: parseInt(cookies.get("modid") || "0"),
+            id_modulo: effectiveModId,
             lang: locale.get()
         })
     }).then(d => d.json())

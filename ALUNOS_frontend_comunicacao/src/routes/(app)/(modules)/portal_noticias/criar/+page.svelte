@@ -1150,6 +1150,7 @@ function handleDragLeave(event) {
               id="fileInput"
               name="fileInput"
               bind:this={fileInputRef}
+              accept=".jpg,.jpeg,.png,.gif,.mp4"
               onchange={(event) => handleFileChange(event)}
               multiple
             />

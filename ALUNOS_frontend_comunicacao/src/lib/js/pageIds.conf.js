@@ -22,5 +22,6 @@ export let pageIds = {
         categorias: { moduleId: modules.portalNoticias, objectId: 5 },
         tags: { moduleId: modules.portalNoticias, objectId: 6 },
         agendamentos: { moduleId: modules.portalNoticias, objectId: 7 },
+        midiaList: { moduleId: modules.portalNoticias, objectId: 8 },
     },
 }

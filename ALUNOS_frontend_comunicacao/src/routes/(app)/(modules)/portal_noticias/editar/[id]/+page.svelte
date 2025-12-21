@@ -998,11 +998,12 @@ function addFilesFromList(fileList) {
 					<label for="fileInput">{$t('divPublicar.Anexos')}:</label>
 					<div class="file-upload-wrapper">
 					<input
-							class="file-input-hidden"
+						class="file-input-hidden"
 						type="file"
 						id="fileInput"
 						name="fileInput"
-							bind:this={fileInputRef}
+						bind:this={fileInputRef}
+						accept=".jpg,.jpeg,.png,.gif,.mp4"
 						onchange={(event) => handleFileChange(event)}
 						multiple
 					/>

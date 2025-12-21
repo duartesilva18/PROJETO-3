@@ -11,5 +11,6 @@ export class DtoCorpoEmail {
     @IsNotEmpty()
     tipo: string;
     
-    dados_tipo: {any};
+    // pode conter qualquer estrutura, depende do tipo de email
+    dados_tipo: any;
 }

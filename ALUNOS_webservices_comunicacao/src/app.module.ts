@@ -7,6 +7,8 @@ import { AuthModule } from "./auth/auth.module";
 import { PassportModule } from '@nestjs/passport';
 import { NoticiasModule } from './portal_noticias/noticias/noticias.module';
 import { RadioJornalModule } from './portal_noticias/radio_jornal/radio_jornal.module';
+import { MidiaPersonalizadaModule } from './portal_noticias/midia_personalizada/midia_personalizada.module';
+import { MidiaAnexosModule } from './portal_noticias/midia_anexos/midia_anexos.module';
 import { TagsModule } from "./portal_noticias/tags/tags.module";
 
 import { CategoriaModule } from "./portal_noticias/categoria/categoria.module";
@@ -25,8 +27,11 @@ import { RedesSociaisModule } from './portal_noticias/redes_sociais/redes_sociai
     AnexosModule,
     NoticiasModule,
     RadioJornalModule,
-    RedesSociaisModule, 
+    RedesSociaisModule,
     TagsModule,
+    MidiaPersonalizadaModule,
+    MidiaAnexosModule,
+    FuncoesBaseModule,
   ]
 })
 export class AppModule {}

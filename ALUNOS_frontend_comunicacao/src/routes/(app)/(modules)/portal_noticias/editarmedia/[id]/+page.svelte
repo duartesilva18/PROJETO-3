@@ -1,14 +1,13 @@
 <script>
 	import { goto } from '$app/navigation';
-import Breadcrum from '$lib/components/Breadcrum.svelte';
+	import Breadcrum from '$lib/components/Breadcrum.svelte';
 	import { locale, t } from '$lib/translations/translations';
-import { onMount , tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import SuccesModal from '../../noticia/[id]/modals/SuccesModal.svelte';
-import { page } from '$app/stores';
-import { get } from 'svelte/store';
-	import "select2";
-import { configurePortalSidebar } from '../../sidebar.config.js';
-import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
+	import { page } from '$app/stores';
+	import { get } from 'svelte/store';
+	import { configurePortalSidebar } from '../../sidebar.config.js';
+	import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 
 const translate = (key) => get(t)(key);
 configurePortalSidebar('dashboard', translate);
@@ -70,13 +69,19 @@ configurePortalSidebar('dashboard', translate);
 		const noticia = await fetch(`/ep/portal_noticias/noticia?id=${noticiaId}`).then(d => d.json())
 		categorias = await fetch('/ep/portal_noticias/categorias').then(d => d.json())
 		pedidos = await fetch('/ep/portal_noticias/getJson').then(d => d.json())
-		radio_jornal = await fetch('/ep/portal_noticias/radio_jornal').then(d => d.json())
+		radio_jornal = await fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json())
 
-		redesSociais = await fetch('/ep/portal_noticias/redes').then(d => d.json())
-		
- 
+		redesSociais = await fetch('/ep/portal_noticias/redes').then((d) => d.json())
 
-		
+		const jq = globalThis.$ ?? globalThis.jQuery;
+		if (jq?.fn?.select2) {
+			jq('#unidinvestigacao').select2();
+			jq('#unidinvestigacao').on('change', selecionarRadioJornal);
+			jq('.select2-single-multi').select2({
+				theme: 'bootstrap',
+				language: locale.get() == 'pt' ? 'pt' : 'en'
+			});
+		}
 		formField = {
 			titulo: noticia.titulo,
 			descricao: noticia.texto,
@@ -492,7 +497,48 @@ configurePortalSidebar('dashboard', translate);
   color: darkred;
 }
 
+/* estilos do seletor de anexos (igual ao Criar Mídia) */
+.file-upload-wrapper {
+  width: 100%;
+}
 
+.file-input-hidden {
+  display: none;
+}
+
+.file-drop-zone {
+  border: 2px dashed #cfd6dd;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  background: #f9fbfd;
+  color: #7fa0b5;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.file-drop-zone:hover,
+.file-drop-zone.active {
+  border-color: #c2c7d0;
+  background: #edf0f3;
+}
+
+.file-drop-zone-icon {
+  font-size: 32px;
+  color: #a0adba;
+  margin-bottom: 8px;
+}
+
+.file-drop-zone-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.file-drop-zone-subtitle {
+  font-size: 13px;
+  color: #9aa9b8;
+}
 </style>
 
 
@@ -566,15 +612,33 @@ configurePortalSidebar('dashboard', translate);
 
 				<div class="form-group">
 					<label for="fileInput">{$t('divPublicar.Anexos')}:</label>
-					<input
-						class="form-control file-input"
-						type="file"
-						id="fileInput"
-						name="fileInput"
-						placeholder={$t('divPublicar.inAnexos')}
-						onchange={(event) => handleFileChange(event)}
-						multiple
-					/>
+					<div class="file-upload-wrapper">
+						<input
+							class="file-input-hidden"
+							type="file"
+							id="fileInput"
+							name="fileInput"
+							placeholder={$t('divPublicar.inAnexos')}
+							accept=".jpg,.jpeg,.png,.gif,.mp4"
+							onchange={(event) => handleFileChange(event)}
+							multiple
+						/>
+						<div
+							class="file-drop-zone"
+							onclick={() => document.getElementById('fileInput')?.click()}
+							role="button"
+							tabindex="0"
+							aria-label={$t('divPublicar.dropTitle')}
+						>
+							<i class="fas fa-upload file-drop-zone-icon" aria-hidden="true"></i>
+							<p class="file-drop-zone-title">
+								{$t('divPublicar.dropTitle')}
+							</p>
+							<span class="file-drop-zone-subtitle">
+								{$t('divPublicar.dropSubtitle')}
+							</span>
+						</div>
+					</div>
 
 					{#if updatedAnexos.length > 0 || anexos.length > 0}
 						{#if updatedAnexos.length > 0}
@@ -638,9 +702,33 @@ configurePortalSidebar('dashboard', translate);
 											></i>
 											{file.name}
 										</a>
-										
-										
-										
+
+										{#if selectedradiosjornais.length > 0}
+											<div class="mt-2">
+												{#each selectedradiosjornais as idRj}
+													<label class="me-3" style="font-size: 12px;">
+														<input
+															type="checkbox"
+															checked={Array.isArray(file.radios) && file.radios.includes(idRj)}
+															onchange={(e) => {
+																let radios = Array.isArray(file.radios) ? file.radios : [];
+																if (e.target.checked) {
+																	if (!radios.includes(idRj)) {
+																		radios = [...radios, idRj];
+																	}
+																} else {
+																	radios = radios.filter((id) => id !== idRj);
+																}
+																file.radios = radios;
+																anexos = [...anexos];
+															}}
+														/>
+														{getNomeById(idRj)}
+													</label>
+												{/each}
+											</div>
+										{/if}
+
 										<button
 											type="button"
 											onclick={() => removeFileUploaded(index)}

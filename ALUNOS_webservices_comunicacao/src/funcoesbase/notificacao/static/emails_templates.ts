@@ -12,7 +12,7 @@ export var TIPOS_EMAIL = {
                 com_valor: true // não aceita valores "falsy" (null, "", false, ...)
             }
         },
-        template: function(id_utilizador, nome_projeto) { 
+        template: function(id_utilizador, nome_projeto) {
             return `<html>
             <head>
             <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -81,6 +81,88 @@ export var TIPOS_EMAIL = {
             
                     <tr height="17">
                             <td class="rodape">Email gerado automaticamente por: IPVC | ON . Notificação ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</td>
+                    </tr>
+                </table>
+            </body>
+            </html>`
+        }
+    },
+    "portal_noticias_midia": {
+        campos: {
+            titulo: {
+                obrigatorio: true,
+                nome: "titulo",
+                com_valor: true
+            },
+            texto: {
+                obrigatorio: true,
+                nome: "texto",
+                com_valor: true
+            }
+        },
+        template: function(titulo, texto) {
+            return `<html>
+            <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <style>
+                td,table {border: 0px;}
+                .cabecalho, .rodape {
+                    font-family : Verdana, Arial, helvetica, sans-serif;
+                    font-size : 12px;
+                    font-weight: bold;
+                    color: #FFFFFF;
+                    background-color: #00a4e6;
+                    padding: 3px;
+                }
+                .corpo_msg {
+                    font-family : Verdana, Arial, helvetica, sans-serif; font-size : 11px; color: #222222; padding: 3px;
+                }
+                .rodape {
+                    font-family : Verdana, Arial, helvetica, sans-serif;
+                    font-size : 10px;
+                    font-weight: bold;
+                    color: #FFFFFF;
+                    background-color: #00a4e6;
+                    padding: 3px;
+                }
+            </style>
+            </head>
+            <body>
+                <table cellpadding="0" cellspacing="0" border="0">
+                    <tr height="10">
+                        <td></td>
+                    </tr>
+                    <tr height="17">
+                        <td class="cabecalho">ON - IPVC | Portal de Notícias</td>
+                    </tr>
+                    <tr height="10">
+                        <td>&nbsp;</td>
+                    </tr>
+                    <tr>
+                        <td class="corpo_msg">
+                            <b>${titulo}</b>
+                            <br><br>
+                            ${texto}
+                        </td>
+                    </tr>
+                    <tr height="8">
+                        <td>&nbsp;</td>
+                    </tr>
+                    <tr valign="top">
+                        <td class="corpo_msg">
+                            <br>
+                            Com os melhores cumprimentos.<br><br>
+                            <i>
+                            IPVC ON . Sistemas de Informação<br>
+                            Instituto Politécnico de Viana do Castelo
+                            </i>
+                        </td>
+                    </tr>
+                    <tr height="15">
+                        <td>&nbsp;</td>
+                    </tr>
+                    <tr height="17">
+                        <td class="rodape">Email gerado automaticamente por: IPVC | ON . Notificação ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</td>
                     </tr>
                 </table>
             </body>

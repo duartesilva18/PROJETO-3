@@ -28,17 +28,28 @@
         }
     });
 
+    // Só deixamos o backend controlar módulos/áreas quando NÃO estamos no Portal de Notícias.
+    // No Portal de Notícias, a sidebar é totalmente configurada pelo próprio módulo
+    // via configurePortalSidebar, e não queremos misturar com o "Módulo Exemplo".
     $effect(() => {
-        if(Array.isArray(data.sidebar_modulos) && data.sidebar_modulos.length){
-            sidebarRune.modules = data.sidebar_modulos
+        if(
+            !manualSidebarModuleIds.has(sidebarOptions.currentModuleId) &&
+            Array.isArray(data.sidebar_modulos) &&
+            data.sidebar_modulos.length
+        ){
+            sidebarRune.modules = data.sidebar_modulos;
         }
-    })
+    });
 
     $effect(() => {
-        if(Array.isArray(data.sidebar_areas) && data.sidebar_areas.length){
-            sidebarRune.areas = data.sidebar_areas
+        if(
+            !manualSidebarModuleIds.has(sidebarOptions.currentModuleId) &&
+            Array.isArray(data.sidebar_areas) &&
+            data.sidebar_areas.length
+        ){
+            sidebarRune.areas = data.sidebar_areas;
         }
-    })
+    });
 
     $effect(() => {  
         if(sidebarOptions.currentModuleId){

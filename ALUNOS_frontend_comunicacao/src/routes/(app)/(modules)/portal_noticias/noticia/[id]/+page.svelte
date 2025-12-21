@@ -56,24 +56,23 @@ configurePortalSidebar('dashboard', translate);
 
 	onMount(async () => {
 		try {
-			redesSocial = await fetch('/ep/portal_noticias/redes').then(d => d.json());
-			noticiaSelecionada = await await fetch(`/ep/portal_noticias/noticia?id=${noticiaId}`).then(d => d.json());
-			pedidos = await fetch('/ep/portal_noticias/getJson').then(d => d.json());
-			radios_jornais = await fetch('/ep/portal_noticias/radio_jornal').then(d => d.json())
-	       
-			const idsEmails = noticiaSelecionada.emails.split(',');
-			const matchedRadiosJornais = radios_jornais.filter(item => idsEmails.includes(item.id_radio_jornal));
-			resultString = matchedRadiosJornais
-            .map(item => `${item.nome}`)
-            .join(', ');
+			redesSocial = await fetch('/ep/portal_noticias/redes').then((d) => d.json());
+			noticiaSelecionada = await fetch(`/ep/portal_noticias/noticia?id=${noticiaId}`).then((d) =>
+				d.json()
+			);
+			pedidos = await fetch('/ep/portal_noticias/getJson').then((d) => d.json());
+			radios_jornais = await fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json());
 
-			
-			
+			const idsEmails = (noticiaSelecionada.emails ?? '').split(',');
+			const matchedRadiosJornais = radios_jornais.filter((item) =>
+				idsEmails.includes(item.id_radio_jornal)
+			);
+			resultString = matchedRadiosJornais.map((item) => `${item.nome}`).join(', ');
 
-			pedidoassunto = pedidos.find(p => p.id === noticiaSelecionada.id_pedido).assunto;
+			pedidoassunto = pedidos.find((p) => p.id === noticiaSelecionada.id_pedido)?.assunto ?? '';
 
-			console.log(pedidoassunto)
-		
+			console.log(pedidoassunto);
+
 			redesSocial.forEach((rede) => {
 				rede.icone = icones[rede.nome];
 			});
@@ -133,10 +132,10 @@ configurePortalSidebar('dashboard', translate);
         const color = socialColors[redeName];
         if (color) {
             return redeName === 'Instagram'
-                ? `background: transparent; -webkit-background-clip: text; color: transparent; background-image: ${color};` // Gradient text for Instagram
-                : `color: ${color}; background: transparent;`; // Solid color for others
+                ? `background: transparent; -webkit-background-clip: text; color: transparent; background-image: ${color};`
+                : `color: ${color}; background: transparent;`;
         }
-        return 'color: #ccc; background: transparent;'; // Default gray if no match
+        return 'color: #ccc; background: transparent;';
     }
 
 
