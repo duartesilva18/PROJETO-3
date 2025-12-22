@@ -184,6 +184,7 @@
         "area": "News Management",
         "areaNoticias": "News Management",
         "areaMidia": "Media Management",
+        "areaEstatisticas": "Statistics",
         "dashboard": "News List",
         "categorias": "Categories list",
         "tags": "Tags list",
@@ -191,6 +192,7 @@
         "criar": "Create News",
         "midiaList": "Media Listing",
         "criarMedia": "Create Media News",
-        "radios": "Radios & Newspapers"
+        "radios": "Radios & Newspapers",
+        "estatisticas": "Statistics"
     }
 }

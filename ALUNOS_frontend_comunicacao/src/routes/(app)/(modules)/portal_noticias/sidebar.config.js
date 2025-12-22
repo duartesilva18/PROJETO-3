@@ -36,13 +36,23 @@ const NAV_SECTIONS = [
 				labelKey: 'sidebarPortal.radios'
 			}
 		]
+	},
+	{
+		labelKey: 'sidebarPortal.areaEstatisticas',
+		items: [
+			{
+				key: 'estatisticas',
+				path: '/portal_noticias/estatisticas',
+				labelKey: 'sidebarPortal.estatisticas'
+			}
+		]
 	}
 ];
 
 const ALL_ITEMS = NAV_SECTIONS.flatMap((section) => section.items);
 
 /**
- * @param {'dashboard' | 'categorias' | 'tags' | 'agendamentos' | 'criar' | 'criarMedia' | 'radios' | 'midiaList'} activeKey
+ * @param {'dashboard' | 'categorias' | 'tags' | 'agendamentos' | 'criar' | 'criarMedia' | 'radios' | 'midiaList' | 'estatisticas'} activeKey
  * @param {(key: string) => string} translate
  */
 export function configurePortalSidebar(activeKey, translate) {

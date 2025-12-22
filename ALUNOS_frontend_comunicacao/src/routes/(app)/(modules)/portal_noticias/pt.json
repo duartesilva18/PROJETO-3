@@ -190,6 +190,7 @@
         "area": "Gestao de Noticias",
         "areaNoticias": "Gestao de Noticias",
         "areaMidia": "Gestao de Midia",
+        "areaEstatisticas": "Estatísticas",
         "dashboard": "Listar Notícias",
         "categorias": "Listar Categorias",
         "tags": "Listar Tags",
@@ -197,7 +198,8 @@
         "criar": "Criar Notícia",
         "midiaList": "Listagem de Midia",
         "criarMedia": "Criar Notícia Media",
-        "radios": "Rádios & Jornais"
+        "radios": "Rádios & Jornais",
+        "estatisticas": "Estatísticas"
     }
 
 }
