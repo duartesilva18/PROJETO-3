@@ -67,34 +67,40 @@ let newSchedule = $state({
 let confirmDelete = $state({ open: false, target: null });
 
 	onMount(async () => {
-		const noticia = await fetch(`/ep/portal_noticias/noticia?id=${noticiaId}`).then((d) => d.json());
-		categorias = await fetch('/ep/portal_noticias/categorias').then((d) => d.json());
-		pedidos = await fetch('/ep/portal_noticias/getJson').then((d) => d.json());
+		try {
+			const noticia = await fetch(`/ep/portal_noticias/noticia?id=${noticiaId}`).then((d) => d.json());
+			
+			if (!noticia || !noticia.id_noticia) {
+				toastr.error('Notícia não encontrada', 'ERRO!', { timeOut: 5000, progressBar: true });
+				goto('/portal_noticias');
+				return;
+			}
 
-		redesSociais = await fetch('/ep/portal_noticias/redes').then((d) => d.json());
-		console.log('id_pedido ; ', noticia.id_pedido);
-		formField = {
-			titulo: noticia.titulo,
-			descricao: noticia.texto,
-			nome_categoria: noticia.pn_categoria.nome,
-			texto_facebook: noticia.texto_facebook,
-			texto_instagram: noticia.texto_instagram,
-			texto_twitter: noticia.texto_twitter,
-			texto_linkedin: noticia.texto_linkedin,
-			texto_tiktok: noticia.texto_tiktok,
-			id_categoria_FK: noticia.id_categoria_FK,
-			id_pedido: noticia.id_pedido,
-			anexos: noticia.pn_anexos,
-			tags: noticia.pn_noticia_Tag,
-		};
+			categorias = await fetch('/ep/portal_noticias/categorias').then((d) => d.json());
+			pedidos = await fetch('/ep/portal_noticias/getJson').then((d) => d.json());
+			redesSociais = await fetch('/ep/portal_noticias/redes').then((d) => d.json());
+			
+			console.log('id_pedido ; ', noticia.id_pedido);
+			formField = {
+				titulo: noticia.titulo || '',
+				descricao: noticia.texto || '',
+				nome_categoria: noticia.pn_categoria?.nome || '',
+				texto_facebook: noticia.texto_facebook || '',
+				texto_instagram: noticia.texto_instagram || '',
+				texto_twitter: noticia.texto_twitter || '',
+				texto_linkedin: noticia.texto_linkedin || '',
+				texto_tiktok: noticia.texto_tiktok || '',
+				id_categoria_FK: noticia.id_categoria_FK || '',
+				id_pedido: noticia.id_pedido || null,
+				anexos: noticia.pn_anexos || [],
+				tags: noticia.pn_noticia_Tag || [],
+			};
 
 
 		
 		
 
-		code = formField.anexos.map(anexo => anexo.code_rede_social);
-
-
+		code = (formField.anexos || []).map(anexo => anexo.code_rede_social);
 
 		redesSociais.forEach((redeSocial) => {
 			redeSocial.checked = formField[`texto_${redeSocial.nome.toLowerCase()}`] != null;
@@ -102,17 +108,17 @@ let confirmDelete = $state({ open: false, target: null });
 
 		tags = await fetch('/ep/portal_noticias/tags').then((d) => d.json());
 
-		tags.forEach((tag) => {
-			formField.tags.forEach((tagNoticia) => {
+		(formField.tags || []).forEach((tagNoticia) => {
+			tags.forEach((tag) => {
 				if (tag.id_tag === tagNoticia.id_tag) {
 					selectedTags.push(tag);
 				}
 			});
 		});
 
-		updatedAnexos = formField.anexos.map((file) => {
+		updatedAnexos = (formField.anexos || []).map((file) => {
 			// Converte o code_rede_social para um array de caracteres
-			let codeArray = file.code_rede_social.split('');
+			let codeArray = (file.code_rede_social || '00000').split('');
 
 			// Mapeia os índices onde há '1' para as respectivas redes sociais
 			let redes = [];
@@ -134,6 +140,13 @@ let confirmDelete = $state({ open: false, target: null });
 
 		// Remove the old key from each object
 		//updatedAnexos.forEach((anexo) => delete anexo.caminho_ficheiro);
+		} catch (error) {
+			console.error('Erro ao carregar dados da notícia:', error);
+			toastr.error('Erro ao carregar a notícia. Por favor, recarregue a página.', 'ERRO!', {
+				timeOut: 5000,
+				progressBar: true
+			});
+		}
 	});
 
 	function getCodeRedeSocial(redes) {
@@ -492,14 +505,22 @@ let confirmDelete = $state({ open: false, target: null });
 				anexosUploaded = await fetch('/ep/portal_noticias/anexos',options).then(d => d.json())
 			}
 
+			if (!id_categoria_FK) {
+				toastr.error('Por favor, selecione uma categoria', 'ERRO!', {
+					timeOut: 5000,
+					progressBar: true
+				});
+				return;
+			}
+
 			const updatedNoticia = { 
 				titulo: String(titulo),
 				texto: String(descricao),
 				estado: String(estado),
 				id_categoria_FK: String(id_categoria_FK),
-				redesSociais: selectedSocialNetworks, // Ensure this is an array
-				tags: tags, // Ensure this is an array
-				id_pedido: id_pedido,
+				redesSociais: selectedSocialNetworks || [], // Ensure this is an array
+				tags: tags || [], // Ensure this is an array
+				id_pedido: id_pedido || null,
 				anexos: [...updatedAnexos, ...(Array.isArray(anexosUploaded) ? anexosUploaded : [])] // Ensure anexosUploaded is an array
 			};
 			
@@ -520,13 +541,33 @@ let confirmDelete = $state({ open: false, target: null });
 				updatedNoticia.texto_tiktok = texto_tiktok;
 			else updatedNoticia.texto_tiktok = null;
 
-				await fetch(`/ep/portal_noticias/dados?id_noticia=${noticiaId}`,{
+			try {
+				const response = await fetch(`/ep/portal_noticias/dados?id_noticia=${noticiaId}`, {
 					method: 'PUT',
+					headers: {
+						'Content-Type': 'application/json'
+					},
 					body: JSON.stringify(updatedNoticia)
-				})
-			toastr.success('Adicionou uma noticia com sucesso!','SUCESSO!',{ timeOut: 5000, progressBar: true})
-			goto('/portal_noticias')
-			// goto('/noticias');
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({ message: 'Erro ao atualizar notícia' }));
+					throw new Error(errorData.message || `Erro ${response.status}`);
+				}
+
+				toastr.success('Atualizou a notícia com sucesso!', 'SUCESSO!', {
+					timeOut: 5000,
+					progressBar: true
+				});
+				goto('/portal_noticias');
+			} catch (error) {
+				console.error('Erro ao atualizar notícia:', error);
+				toastr.error(
+					error.message || 'Erro ao atualizar a notícia. Por favor, tente novamente.',
+					'ERRO!',
+					{ timeOut: 5000, progressBar: true }
+				);
+			}
 
 	
 }

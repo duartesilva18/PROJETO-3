@@ -699,6 +699,89 @@ configurePortalSidebar('criarMedia', translate);
   margin-right: 10px;
 }
 
+.selected-file {
+  background-color: #f8f9fa;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 5px;
+}
+
+.file-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: #007bff;
+}
+
+.file-link i {
+  margin-right: 8px;
+}
+
+.btn-delete {
+  background: none;
+  border: none;
+  color: red;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.btn-delete:hover {
+  color: darkred;
+}
+
+.file-networks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5%; /* More spacing between checkboxes */
+  justify-content: center; /* Center-align checkboxes */
+  padding-top: 10px;
+}
+
+.file-networks label {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* Space between checkbox and label text */
+  font-size: 14px;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 5px;
+  transition: background 0.3s;
+}
+
+.file-networks label:hover {
+  background: #f0f0f0;
+}
+
+.file-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-preview {
+  display: inline-flex;
+  justify-content: flex-start;
+}
+
+.file-preview-image {
+  max-width: 160px;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #dde3ea;
+}
+
 </style>
 
 <Breadcrum
@@ -824,52 +907,54 @@ configurePortalSidebar('criarMedia', translate);
           </div>
 
           {#if anexos.length > 0}
-            <div class="selected-files mt-3" style="max-width: 600px; margin: 0 auto;">
+            <div class="selected-files mt-3">
               <label for="fileInput" class="form-label">{$t('divPublicar.sAnexos')}:</label>
 
               {#each anexos as file, index (file)}
-                <div
-                  class="selected-file mt-2 p-2 border rounded"
-                  id="sFile-{index}"
-                  style="background-color: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"
-                >
-                  <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center">
-                      {#if file.type && file.type.startsWith('image/')}
-                        <img src={file.url} alt={file.name} class="file-preview-thumb" />
-                      {/if}
-                      <a href={file.url} target="_blank" class="file-link d-flex align-items-center text-decoration-none">
-                        <i
-                          class="fas fa-file-alt me-2 text-primary"
-                          style="margin-right: 10px; font-size: 1.2em;"
-                        ></i>
-                        {file.name}
-                      </a>
-                    </div>
+                <div class="selected-file">
+                  <div class="file-header">
+                    <a href={file.url} target="_blank" class="file-link">
+                      <i class="fas fa-file-alt"></i> {file.name}
+                    </a>
                     <button
                       type="button"
+                      class="btn-delete"
                       onclick={() => removeFile(index)}
-                      class="btn btn-sm btn-outline-danger"
-                      style="display: flex; align-items: center; justify-content: center;"
                     >
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
 
-                  {#if selectedradiosjornais.length > 0}
-                    <div class="mt-2">
-                      {#each selectedradiosjornais as idRj}
-                        <label class="me-3" style="font-size: 12px;">
-                          <input
-                            type="checkbox"
-                            checked={Array.isArray(file.radios) && file.radios.includes(idRj)}
-                            onchange={(e) => toggleFileRadio(index, idRj, e.target.checked)}
-                          />
-                          {getNomeById(idRj)}
-                        </label>
-                      {/each}
-                    </div>
-                  {/if}
+                  <div class="file-body">
+                    {#if file.type && file.type.startsWith('image/')}
+                      <div class="file-preview">
+                        <img
+                          src={file.url}
+                          alt={file.name}
+                          class="file-preview-image"
+                        />
+                      </div>
+                    {/if}
+
+                    {#if selectedradiosjornais.length > 0}
+                      <div class="mt-2">
+                        <label class="form-label" style="font-size: 16px; font-weight: 600; margin-bottom: 15px;">RÁDIOS/JORNAIS:</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 10px 0;">
+                          {#each selectedradiosjornais as idRj}
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 16px; cursor: pointer; padding: 8px 12px; border-radius: 5px; transition: background 0.3s;">
+                              <input
+                                type="checkbox"
+                                checked={Array.isArray(file.radios) && file.radios.includes(idRj)}
+                                onchange={(e) => toggleFileRadio(index, idRj, e.target.checked)}
+                                style="width: 18px; height: 18px; cursor: pointer;"
+                              />
+                              {getNomeById(idRj)}
+                            </label>
+                          {/each}
+                        </div>
+                      </div>
+                    {/if}
+                  </div>
                 </div>
               {/each}
             </div>

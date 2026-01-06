@@ -17,8 +17,12 @@
 		ano: ''
 	});
 
+	let anoSelecionado = $state('');
+
 	let noticias = $state([]);
-let radios = $state([]);
+	let radios = $state([]);
+	let redesSociais = $state([]);
+	let tags = $state([]);
 
 	function filtrarNoticias() {
 		let lista = noticias;
@@ -38,8 +42,21 @@ let radios = $state([]);
 		const lista = filtrarNoticias().filter((n) => n.estado !== 'eliminada');
 
 		const total = lista.length;
-		const publicados = lista.filter((n) => n.estado === 'Publicado').length;
-		const midia = lista.filter((n) => n.tipo === 1).length;
+		const publicados = lista.filter((n) => n.estado === 'Publicado');
+		
+		// Total de Publicações (Redes Sociais e Rádio/Jornal)
+		const totalPublicacoes = publicados.length;
+		
+		// Notícias publicadas nas Redes Sociais (têm pn_rs_noticia)
+		const publicadasRedesSociais = publicados.filter((n) => 
+			n.pn_rs_noticia && n.pn_rs_noticia.length > 0
+		).length;
+		
+		// Notícias publicadas Rádios/Jornais (tipo === 1)
+		const publicadasRadiosJornais = publicados.filter((n) => n.tipo === 1).length;
+		
+		// Notícias Pendentes (útil para gestão)
+		const pendentes = lista.filter((n) => n.estado === 'Pendente').length;
 
 		const radiosSet = new Set();
 		lista.forEach((n) => {
@@ -52,20 +69,42 @@ let radios = $state([]);
 		});
 		const radiosDistintos = radiosSet.size;
 
-		return { total, publicados, midia, radiosDistintos };
+		// Notícias Agendadas (têm agendamentos)
+		const agendadas = lista.filter((n) => 
+			n.pn_agendamento_rede && Array.isArray(n.pn_agendamento_rede) && n.pn_agendamento_rede.length > 0
+		).length;
+
+		// Notícias com Anexos
+		const comAnexos = lista.filter((n) => 
+			n.pn_anexos && Array.isArray(n.pn_anexos) && n.pn_anexos.length > 0
+		).length;
+
+		return {
+			totalPublicacoes,
+			publicadasRedesSociais,
+			publicadasRadiosJornais,
+			pendentes,
+			agendadas,
+			radiosDistintos,
+			comAnexos
+		};
 	}
 
 	let anosDisponiveis = $state([]);
 
 	onMount(async () => {
 		try {
-			const [dados, radiosData] = await Promise.all([
+			const [dados, radiosData, redesSociaisData, tagsData] = await Promise.all([
 				fetch('/ep/portal_noticias/dados').then((d) => d.json()),
-				fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json())
+				fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json()),
+				fetch('/ep/portal_noticias/redes').then((d) => d.json()),
+				fetch('/ep/portal_noticias/tags').then((d) => d.json())
 			]);
 
 			noticias = Array.isArray(dados) ? dados : [];
 			radios = Array.isArray(radiosData) ? radiosData : [];
+			redesSociais = Array.isArray(redesSociaisData) ? redesSociaisData : [];
+			tags = Array.isArray(tagsData) ? tagsData : [];
 
 			const anosSet = new Set(
 				noticias
@@ -73,6 +112,9 @@ let radios = $state([]);
 					.map((n) => new Date(n.data_criacao).getFullYear().toString())
 			);
 			anosDisponiveis = Array.from(anosSet).sort().reverse();
+			
+			// Inicializar anoSelecionado com o valor atual do filtro
+			anoSelecionado = filtros.ano;
 		} catch (e) {
 			console.error('Erro a carregar estatísticas de notícias', e);
 		} finally {
@@ -100,12 +142,16 @@ let mesChartCanvas;
 let midiaMesChartCanvas;
 let tipoChartCanvas;
 let topRadiosChartCanvas;
+let redesSociaisChartCanvas;
+let topTagsChartCanvas;
 let estadoChart;
 let categoriaChart;
 let mesChart;
 let midiaMesChart;
 let tipoChart;
 let topRadiosChart;
+let redesSociaisChart;
+let topTagsChart;
 
 function buildEstadoData(lista) {
 	const counts = {
@@ -182,6 +228,60 @@ function buildTopRadiosData(lista, maxItems = 5) {
 	return { labels, values };
 }
 
+function buildRedesSociaisData(lista) {
+	const mapa = new Map();
+
+	// Contar notícias por rede social
+	lista
+		.filter((n) => n.pn_rs_noticia && Array.isArray(n.pn_rs_noticia))
+		.forEach((n) => {
+			n.pn_rs_noticia.forEach((rs) => {
+				if (rs && rs.id_rede_social_FK) {
+					const id = rs.id_rede_social_FK;
+					mapa.set(id, (mapa.get(id) || 0) + 1);
+				}
+			});
+		});
+
+	// Ordenar por quantidade (maior para menor)
+	const entries = Array.from(mapa.entries()).sort((a, b) => b[1] - a[1]);
+	
+	const labels = entries.map(([id]) => {
+		const rede = redesSociais.find((r) => String(r.id_rede_social) === String(id));
+		return rede?.nome || id;
+	});
+	const values = entries.map(([, count]) => count);
+
+	return { labels, values };
+}
+
+function buildTopTagsData(lista, maxItems = 10) {
+	const mapa = new Map();
+
+	// Contar notícias por tag
+	lista
+		.filter((n) => n.pn_noticia_Tag && Array.isArray(n.pn_noticia_Tag))
+		.forEach((n) => {
+			n.pn_noticia_Tag.forEach((tagRel) => {
+				if (tagRel && tagRel.id_tag) {
+					const id = tagRel.id_tag;
+					mapa.set(id, (mapa.get(id) || 0) + 1);
+				}
+			});
+		});
+
+	// Ordenar por quantidade (maior para menor) e limitar
+	const entries = Array.from(mapa.entries()).sort((a, b) => b[1] - a[1]).slice(0, maxItems);
+	
+	const labels = entries.map(([id]) => {
+		const tag = tags.find((t) => String(t.id_tag) === String(id));
+		return tag?.nome || id;
+	});
+	const values = entries.map(([, count]) => count);
+
+	return { labels, values };
+}
+
 function updateCharts() {
 	if (!dashboardVisible) return;
 	const lista = filtrarNoticias().filter((n) => n.estado !== 'eliminada');
@@ -193,7 +293,9 @@ function updateCharts() {
 		!mesChartCanvas ||
 		!midiaMesChartCanvas ||
 		!tipoChartCanvas ||
-		!topRadiosChartCanvas
+		!topRadiosChartCanvas ||
+		!redesSociaisChartCanvas ||
+		!topTagsChartCanvas
 	)
 		return;
 
@@ -203,6 +305,8 @@ function updateCharts() {
 	const mesMidiaData = buildMesData(midiaLista);
 	const tipoData = buildTipoData(lista);
 	const topRadiosData = buildTopRadiosData(midiaLista);
+	const redesSociaisData = buildRedesSociaisData(lista);
+	const topTagsData = buildTopTagsData(lista);
 
 	if (estadoChart) {
 		estadoChart.destroy();
@@ -222,6 +326,12 @@ function updateCharts() {
 	if (topRadiosChart) {
 		topRadiosChart.destroy();
 	}
+	if (redesSociaisChart) {
+		redesSociaisChart.destroy();
+	}
+	if (topTagsChart) {
+		topTagsChart.destroy();
+	}
 
 	const baseOptions = {
 		legend: {
@@ -236,7 +346,7 @@ function updateCharts() {
 	estadoChart = new Chart(estadoChartCanvas, {
 		type: 'doughnut',
 		data: {
-			labels: ['Pendente', 'Publicado', 'Outros'],
+			labels: [get(t)('divNoticias.pendente'), get(t)('divNoticias.publicado'), get(t)('divEstatisticas.outros') || 'Outros'],
 			datasets: [
 				{
 					data: [estadoData.Pendente, estadoData.Publicado, estadoData.Outros],
@@ -256,7 +366,7 @@ function updateCharts() {
 			labels: categoriaData.labels,
 			datasets: [
 				{
-					label: 'N.º notícias',
+					label: get(t)('divEstatisticas.numeroNoticias') || 'N.º notícias',
 					data: categoriaData.values,
 					backgroundColor: '#26c6da'
 				}
@@ -283,7 +393,7 @@ function updateCharts() {
 			labels: mesData.labels,
 			datasets: [
 				{
-					label: 'Notícias por mês',
+					label: get(t)('divEstatisticas.noticiasRedesSociaisMes'),
 					data: mesData.values,
 					borderColor: '#42a5f5',
 					backgroundColor: 'rgba(66, 165, 245, 0.15)',
@@ -314,7 +424,7 @@ function updateCharts() {
 			labels: mesMidiaData.labels,
 			datasets: [
 				{
-					label: 'Mídias por mês',
+					label: get(t)('divEstatisticas.radiosJornaisMes'),
 					data: mesMidiaData.values,
 					borderColor: '#ef5350',
 					backgroundColor: 'rgba(239, 83, 80, 0.15)',
@@ -342,7 +452,7 @@ function updateCharts() {
 	tipoChart = new Chart(tipoChartCanvas, {
 		type: 'doughnut',
 		data: {
-			labels: ['Notícia normal', 'Mídia'],
+			labels: [get(t)('divEstatisticas.redesSociais'), get(t)('divEstatisticas.radiosJornaisLabel')],
 			datasets: [
 				{
 					data: [tipoData.normal, tipoData.midia],
@@ -362,7 +472,7 @@ function updateCharts() {
 			labels: topRadiosData.labels,
 			datasets: [
 				{
-					label: 'N.º de Mídias',
+					label: get(t)('divEstatisticas.numeroRadiosJornais'),
 					data: topRadiosData.values,
 					backgroundColor: '#ab47bc'
 				}
@@ -382,6 +492,72 @@ function updateCharts() {
 			}
 		}
 	});
+
+	// Cores para redes sociais (mais importantes primeiro)
+	const coresRedesSociais = ['#1877f2', '#e4405f', '#1da1f2', '#0077b5', '#000000', '#ff0050', '#25f4ee', '#fe2c55'];
+	const backgroundColorRedes = redesSociaisData.labels.map((_, index) => 
+		coresRedesSociais[index % coresRedesSociais.length]
+	);
+
+	redesSociaisChart = new Chart(redesSociaisChartCanvas, {
+		type: 'bar',
+		data: {
+			labels: redesSociaisData.labels,
+			datasets: [
+				{
+					label: get(t)('divEstatisticas.numeroNoticiasPorRede'),
+					data: redesSociaisData.values,
+					backgroundColor: backgroundColorRedes
+				}
+			]
+		},
+		options: {
+			...baseOptions,
+			scales: {
+				yAxes: [
+					{
+						ticks: {
+							beginAtZero: true,
+							stepSize: 1
+						}
+					}
+				]
+			}
+		}
+	});
+
+	// Cores para tags (gradiente de cores vibrantes)
+	const coresTags = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b', '#eb4d4b', '#6c5ce7', '#a29bfe', '#00b894', '#00cec9'];
+	const backgroundColorTags = topTagsData.labels.map((_, index) => 
+		coresTags[index % coresTags.length]
+	);
+
+	topTagsChart = new Chart(topTagsChartCanvas, {
+		type: 'horizontalBar',
+		data: {
+			labels: topTagsData.labels,
+			datasets: [
+				{
+					label: get(t)('divEstatisticas.numeroNoticiasPorTag'),
+					data: topTagsData.values,
+					backgroundColor: backgroundColorTags
+				}
+			]
+		},
+		options: {
+			...baseOptions,
+			scales: {
+				xAxes: [
+					{
+						ticks: {
+							beginAtZero: true,
+							stepSize: 1
+						}
+					}
+				]
+			}
+		}
+	});
 }
 
 $effect(() => {
@@ -389,6 +565,23 @@ $effect(() => {
 		updateCharts();
 	}
 });
+
+// Atualizar gráficos quando o idioma mudar
+$effect(() => {
+	if (!loading && dashboardVisible) {
+		// Força atualização dos gráficos quando o idioma muda
+		const currentLocale = locale.get();
+		updateCharts();
+		}
+	});
+
+	function aplicarFiltro() {
+		filtros.ano = anoSelecionado;
+		// Força atualização dos KPIs e gráficos
+		if (!loading && dashboardVisible) {
+			updateCharts();
+		}
+	}
 </script>
 
 <Breadcrum
@@ -399,20 +592,20 @@ $effect(() => {
 
 <div class="tableNews mt-2">
 	<div class="row filter">
-		<form on:submit|preventDefault class="w-100">
+		<form on:submit|preventDefault={aplicarFiltro} class="w-100">
 			<div class="row filter-row align-items-start g-3">
 				<!-- ANO -->
 				<div class="col-md-3 col-lg-3">
-					<label class="filter-label">Ano</label>
-					<select class="form-control" bind:value={filtros.ano}>
-						<option value="">Todos</option>
+					<label class="filter-label">{$t('divEstatisticas.ano')}</label>
+					<select class="form-control" bind:value={anoSelecionado}>
+						<option value="">{$t('divEstatisticas.todos')}</option>
 						{#each anosDisponiveis as ano}
 							<option value={ano}>{ano}</option>
 						{/each}
 					</select>
 				</div>
 
-				<!-- BOTÃO PESQUISAR, À DIREITA (só visual, filtro é reativo) -->
+				<!-- BOTÃO PESQUISAR, À DIREITA -->
 				<div class="col-md-3 col-lg-3 d-flex flex-column align-items-center align-items-md-start">
 					<span class="filter-label d-block">&nbsp;</span>
 					<button
@@ -428,29 +621,57 @@ $effect(() => {
 		</form>
 	</div>
 
+	<script>
+		function aplicarFiltro() {
+			filtros.ano = anoSelecionado;
+			// Força atualização dos KPIs e gráficos
+			if (!loading && dashboardVisible) {
+				updateCharts();
+			}
+		}
+	</script>
+
 	<div class="row mt-4 kpi-row">
-		<div class="col-md-3">
+		<div class="col-md-2 col-sm-6 mb-3">
 			<div class="kpi-card gradient-1">
-				<div class="kpi-value">{kpis.total}</div>
-				<div class="kpi-label">Total de Notícias</div>
+				<div class="kpi-value">{kpis.totalPublicacoes}</div>
+				<div class="kpi-label">{$t('divEstatisticas.totalPublicacoes')}</div>
+				<div class="kpi-subtitle">{$t('divEstatisticas.totalPublicacoesSubtitle')}</div>
 			</div>
 		</div>
-		<div class="col-md-3">
+		<div class="col-md-2 col-sm-6 mb-3">
 			<div class="kpi-card gradient-2">
-				<div class="kpi-value">{kpis.publicados}</div>
-				<div class="kpi-label">Notícias Publicadas</div>
+				<div class="kpi-value">{kpis.publicadasRedesSociais}</div>
+				<div class="kpi-label">{$t('divEstatisticas.noticiasPublicadas')}</div>
+				<div class="kpi-subtitle">{$t('divEstatisticas.nasRedesSociais')}</div>
 			</div>
 		</div>
-		<div class="col-md-3">
+		<div class="col-md-2 col-sm-6 mb-3">
 			<div class="kpi-card gradient-3">
-				<div class="kpi-value">{kpis.midia}</div>
-				<div class="kpi-label">Notícias de Mídia</div>
+				<div class="kpi-value">{kpis.publicadasRadiosJornais}</div>
+				<div class="kpi-label">{$t('divEstatisticas.noticiasPublicadas')}</div>
+				<div class="kpi-subtitle">{$t('divEstatisticas.radiosJornais')}</div>
 			</div>
 		</div>
-		<div class="col-md-3">
+		<div class="col-md-2 col-sm-6 mb-3">
 			<div class="kpi-card gradient-4">
-				<div class="kpi-value">{kpis.radiosDistintos}</div>
-				<div class="kpi-label">Rádios/Jornais distintos</div>
+				<div class="kpi-value">{kpis.pendentes}</div>
+				<div class="kpi-label">{$t('divEstatisticas.noticiasPendentes')}</div>
+				<div class="kpi-subtitle">{$t('divEstatisticas.aguardandoPublicacao')}</div>
+			</div>
+		</div>
+		<div class="col-md-2 col-sm-6 mb-3">
+			<div class="kpi-card gradient-5">
+				<div class="kpi-value">{kpis.agendadas}</div>
+				<div class="kpi-label">{$t('divEstatisticas.noticiasAgendadas')}</div>
+				<div class="kpi-subtitle">{$t('divEstatisticas.comAgendamento')}</div>
+			</div>
+		</div>
+		<div class="col-md-2 col-sm-6 mb-3">
+			<div class="kpi-card gradient-6">
+				<div class="kpi-value">{kpis.comAnexos}</div>
+				<div class="kpi-label">{$t('divEstatisticas.noticiasComAnexos')}</div>
+				<div class="kpi-subtitle">{$t('divEstatisticas.comFicheiros')}</div>
 			</div>
 		</div>
 	</div>
@@ -463,7 +684,7 @@ $effect(() => {
 				on:click={toggleDashboard}
 			>
 				<i class="fas fa-chart-pie mr-1"></i>
-				{dashboardVisible ? 'Ocultar dashboard' : 'Mostrar dashboard'}
+				{dashboardVisible ? $t('divEstatisticas.ocultarDashboard') : $t('divEstatisticas.mostrarDashboard')}
 			</button>
 		</div>
 	</div>
@@ -471,57 +692,83 @@ $effect(() => {
 	{#if dashboardVisible}
 		<div class="row mt-4">
 			<div class="col-12">
-				<h4 class="section-title">Informações gerais</h4>
+				<h4 class="section-title">{$t('divEstatisticas.informacoesGerais')}</h4>
+				<!-- 1. Distribuição por Estado (visão geral) -->
 				<div class="row mt-3">
 					<div class="col-md-6 mb-3">
 						<div class="chart-card">
-							<div class="chart-title">Distribuição por estado</div>
+							<div class="chart-title">{$t('divEstatisticas.distribuicaoEstado')}</div>
 							<div class="chart-wrapper">
 								<canvas bind:this={estadoChartCanvas}></canvas>
 							</div>
 						</div>
 					</div>
+					<!-- 2. Notícias por Rede Social (novo - importante) -->
 					<div class="col-md-6 mb-3">
 						<div class="chart-card">
-							<div class="chart-title">Notícias por categoria</div>
+							<div class="chart-title">{$t('divEstatisticas.noticiasPorRedeSocial')}</div>
+							<div class="chart-wrapper">
+								<canvas bind:this={redesSociaisChartCanvas}></canvas>
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- 3. Redes Sociais vs Rádios/Jornais (comparação importante) -->
+				<div class="row mt-3">
+					<div class="col-md-6 mb-3">
+						<div class="chart-card">
+							<div class="chart-title">{$t('divEstatisticas.redesSociaisVsRadios')}</div>
+							<div class="chart-wrapper">
+								<canvas bind:this={tipoChartCanvas}></canvas>
+							</div>
+						</div>
+					</div>
+					<!-- 4. Notícias por Categoria (Redes Sociais) -->
+					<div class="col-md-6 mb-3">
+						<div class="chart-card">
+							<div class="chart-title">{$t('divEstatisticas.noticiasPorCategoria')}</div>
 							<div class="chart-wrapper">
 								<canvas bind:this={categoriaChartCanvas}></canvas>
 							</div>
 						</div>
 					</div>
 				</div>
+				<!-- 5. Top Rádios/Jornais -->
 				<div class="row mt-3">
 					<div class="col-md-6 mb-3">
 						<div class="chart-card">
-							<div class="chart-title">Notícias normais vs Mídia</div>
-							<div class="chart-wrapper">
-								<canvas bind:this={tipoChartCanvas}></canvas>
-							</div>
-						</div>
-					</div>
-					<div class="col-md-6 mb-3">
-						<div class="chart-card">
-							<div class="chart-title">Top rádios/jornais (Mídia)</div>
+							<div class="chart-title">{$t('divEstatisticas.topRadiosJornais')}</div>
 							<div class="chart-wrapper">
 								<canvas bind:this={topRadiosChartCanvas}></canvas>
 							</div>
 						</div>
 					</div>
-				</div>
-				<div class="row mt-3">
+					<!-- 6. Notícias nas Redes Sociais por mês -->
 					<div class="col-md-6 mb-3">
 						<div class="chart-card">
-							<div class="chart-title">Notícias por mês</div>
+							<div class="chart-title">{$t('divEstatisticas.noticiasRedesSociaisMes')}</div>
 							<div class="chart-wrapper">
 								<canvas bind:this={mesChartCanvas}></canvas>
 							</div>
 						</div>
 					</div>
+				</div>
+				<!-- 7. Rádios/Jornais por mês -->
+				<div class="row mt-3">
 					<div class="col-md-6 mb-3">
 						<div class="chart-card">
-							<div class="chart-title">Mídias por mês</div>
+							<div class="chart-title">{$t('divEstatisticas.radiosJornaisMes')}</div>
 							<div class="chart-wrapper">
 								<canvas bind:this={midiaMesChartCanvas}></canvas>
+							</div>
+						</div>
+					</div>
+					<!-- 8. Top Tags (tags mais utilizadas) -->
+					<div class="col-md-6 mb-3">
+						<div class="chart-card">
+							<div class="chart-title">{$t('divEstatisticas.topTags')}</div>
+							<div class="chart-wrapper">
+								<canvas bind:this={topTagsChartCanvas}></canvas>
 							</div>
 						</div>
 					</div>
@@ -531,7 +778,7 @@ $effect(() => {
 	{:else}
 		<div class="row mt-4">
 			<div class="col-12">
-				<p class="dashboard-hidden-text">O dashboard está ocultado.</p>
+				<p class="dashboard-hidden-text">{$t('divEstatisticas.dashboardOcultado')}</p>
 			</div>
 		</div>
 	{/if}
@@ -578,7 +825,9 @@ $effect(() => {
 	/* Todos os cards usam o mesmo gradiente do primeiro */
 	.kpi-card.gradient-2,
 	.kpi-card.gradient-3,
-	.kpi-card.gradient-4 {
+	.kpi-card.gradient-4,
+	.kpi-card.gradient-5,
+	.kpi-card.gradient-6 {
 		background: linear-gradient(135deg, #e0f3ff 0%, #c3e4ff 50%, #f5fbff 100%);
 	}
 
@@ -592,6 +841,14 @@ $effect(() => {
 		font-size: 13px;
 		font-weight: 500;
 		color: #4c6377;
+	}
+
+	.kpi-subtitle {
+		font-size: 10px;
+		font-weight: 400;
+		color: #7f8b99;
+		margin-top: 2px;
+		font-style: italic;
 	}
 
 	.loading-area {

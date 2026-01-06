@@ -1,0 +1,71 @@
+═══════════════════════════════════════════════════════════════
+  GUIA RÁPIDO - LISTA DE NOTÍCIAS WORDPRESS
+═══════════════════════════════════════════════════════════════
+
+PASSO 1: ENCONTRAR A PASTA DO TEMA
+───────────────────────────────────
+1. Abre a pasta do WordPress
+2. Vai a: wp-content/themes/
+3. Abre a pasta do tema que estás a usar (ex: twentytwentyfour)
+
+
+PASSO 2: COPIAR FICHEIROS
+──────────────────────────
+Copia estes 2 ficheiros para a pasta do tema:
+  ✓ page-lista-noticias.php
+  ✓ style-lista-noticias.css
+
+
+PASSO 3: EDITAR functions.php
+──────────────────────────────
+1. Abre o ficheiro functions.php do tema
+2. Copia TODO o conteúdo de functions-lista-noticias.php
+3. Cola no FINAL do functions.php
+4. Guarda o ficheiro
+
+
+PASSO 4: CRIAR PÁGINA NO WORDPRESS
+──────────────────────────────────
+1. Entra no WordPress Admin
+2. Páginas → Adicionar Nova
+3. Dá um nome (ex: "Lista de Notícias")
+4. No lado direito: "Atributos da Página" → "Modelo"
+5. Seleciona "Lista de Notícias"
+6. Clica "Publicar"
+
+
+PASSO 5: VER A PÁGINA
+──────────────────────
+Clica em "Ver página" ou vai ao URL da página!
+
+
+═══════════════════════════════════════════════════════════════
+  ONDE ESTÁ A PASTA DO WORDPRESS?
+═══════════════════════════════════════════════════════════════
+
+LOCAL (XAMPP):
+  C:\xampp\htdocs\nome-do-site\wp-content\themes\
+
+SERVIDOR (FTP):
+  public_html/wp-content/themes/
+
+
+═══════════════════════════════════════════════════════════════
+  PROBLEMAS?
+═══════════════════════════════════════════════════════════════
+
+❌ Não vejo o template?
+   → Verifica se os ficheiros estão na pasta correta
+
+❌ Página em branco?
+   → Verifica se o código no functions.php está correto
+
+❌ Sem estilos?
+   → Verifica se o CSS está na mesma pasta
+
+═══════════════════════════════════════════════════════════════
+
+
+
+
+

@@ -219,12 +219,16 @@ export class NoticiasService {
   async updateNoticia(id: string, dto: NoticiaDto) {
     const noticiaID = String(id);
 
+    if (!dto.id_categoria_FK) {
+      throw new BadRequestException('ID da categoria é obrigatório');
+    }
+
     const noticiaExist = await this.prisma.pn_noticia.findUnique({
       where: { id_noticia: noticiaID }
     });
 
     if (!noticiaExist) {
-      return { message: 'Notícia não encontrada' };
+      throw new BadRequestException('Notícia não encontrada');
     }
 
     const parsedIdPedido =
@@ -238,60 +242,118 @@ export class NoticiasService {
     const hasTipo = Number.isFinite(parsedTipo);
 
     try {
+      const updateData: any = {
+        titulo: dto.titulo,
+        texto: dto.texto,
+        texto_facebook: dto.texto_facebook || null,
+        texto_instagram: dto.texto_instagram || null,
+        texto_linkedin: dto.texto_linkedin || null,
+        texto_twitter: dto.texto_twitter || null,
+        texto_tiktok: dto.texto_tiktok || null,
+        estado: dto.estado,
+        emails: dto.emails || null,
+        ...(hasIdPedido ? { id_pedido: parsedIdPedido } : { id_pedido: null }),
+        ...(hasTipo ? { tipo: parsedTipo } : { tipo: null }),
+        pn_categoria: {
+          connect: { id_categoria: dto.id_categoria_FK }
+        }
+      };
+
+      // Apenas atualizar redes sociais se fornecidas
+      if (dto.redesSociais && Array.isArray(dto.redesSociais) && dto.redesSociais.length > 0) {
+        const redesSociaisData = dto.redesSociais
+          .filter((rs) => rs && rs.id_rede_social)
+          .map((rs) => ({
+            id_rede_social_FK: rs.id_rede_social
+          }));
+        
+        if (redesSociaisData.length > 0) {
+          updateData.pn_rs_noticia = {
+            deleteMany: {},
+            createMany: { data: redesSociaisData }
+          };
+        } else {
+          // Se não há redes válidas, apenas deletar as existentes
+          updateData.pn_rs_noticia = {
+            deleteMany: {}
+          };
+        }
+      } else {
+        // Se não fornecido, apenas deletar as existentes
+        updateData.pn_rs_noticia = {
+          deleteMany: {}
+        };
+      }
+
+      // Apenas atualizar anexos se fornecidos
+      if (dto.anexos && Array.isArray(dto.anexos) && dto.anexos.length > 0) {
+        const anexosData = dto.anexos
+          .filter((anexo) => anexo && anexo.nome_ficheiro)
+          .map((anexo) => ({
+            nome_ficheiro: anexo.nome_ficheiro,
+            tipo: anexo.tipo || 'application/octet-stream',
+            nome_original_ficheiro: anexo.nome_original_ficheiro || anexo.nome_ficheiro,
+            code_rede_social: anexo.code_rede_social || '00000'
+          }));
+        
+        if (anexosData.length > 0) {
+          updateData.pn_anexos = {
+            deleteMany: {},
+            createMany: { data: anexosData }
+          };
+        } else {
+          updateData.pn_anexos = {
+            deleteMany: {}
+          };
+        }
+      } else {
+        // Se não fornecido, apenas deletar os existentes
+        updateData.pn_anexos = {
+          deleteMany: {}
+        };
+      }
+
+      // Apenas atualizar tags se fornecidas
+      if (dto.tags && Array.isArray(dto.tags) && dto.tags.length > 0) {
+        const tagsData = dto.tags
+          .filter((tag) => tag && tag.id_tag)
+          .map((tag) => ({
+            id_tag: tag.id_tag
+          }));
+        
+        if (tagsData.length > 0) {
+          updateData.pn_noticia_Tag = {
+            deleteMany: {},
+            createMany: { data: tagsData }
+          };
+        } else {
+          updateData.pn_noticia_Tag = {
+            deleteMany: {}
+          };
+        }
+      } else {
+        // Se não fornecido, apenas deletar as existentes
+        updateData.pn_noticia_Tag = {
+          deleteMany: {}
+        };
+      }
+
       const updatedNoticia = await this.prisma.pn_noticia.update({
         where: { id_noticia: noticiaID },
-        data: {
-          titulo: dto.titulo,
-          texto: dto.texto,
-          texto_facebook: dto.texto_facebook,
-          texto_instagram: dto.texto_instagram,
-          texto_linkedin: dto.texto_linkedin,
-          texto_twitter: dto.texto_twitter,
-          texto_tiktok: dto.texto_tiktok,
-          estado: dto.estado,
-          emails: dto.emails,
-          ...(hasIdPedido ? { id_pedido: parsedIdPedido } : { id_pedido: null }),
-          ...(hasTipo ? { tipo: parsedTipo } : { tipo: null }),
-          pn_categoria: {
-            connect: { id_categoria: dto.id_categoria_FK }
-          },
-          pn_rs_noticia: {
-            deleteMany: {},
-            createMany: {
-              data: (dto.redesSociais || []).map((rs) => ({
-                id_rede_social_FK: rs.id_rede_social
-              }))
-            }
-          },
-          pn_anexos: {
-            deleteMany: {},
-            createMany: {
-              data: (dto.anexos || []).map((anexo) => ({
-                nome_ficheiro: anexo.nome_ficheiro,
-                tipo: anexo.tipo,
-                nome_original_ficheiro: anexo.nome_original_ficheiro,
-                code_rede_social: anexo.code_rede_social
-              }))
-            }
-          },
-          pn_noticia_Tag: {
-            deleteMany: {},
-            createMany: {
-              data: (dto.tags || []).map((tag) => ({
-                id_tag: tag.id_tag
-              }))
-            }
-          }
-        }
+        data: updateData
       });
 
       return updatedNoticia;
     } catch (error: any) {
       console.error('Erro ao atualizar notícia:', error);
-      return {
-        message: 'Não foi possível concluir o pedido',
-        error: error.message
-      };
+      console.error('Detalhes do erro:', {
+        code: error.code,
+        meta: error.meta,
+        message: error.message
+      });
+      throw new BadRequestException(
+        `Erro ao atualizar notícia: ${error.message || 'Erro desconhecido'}`
+      );
     }
   }
 

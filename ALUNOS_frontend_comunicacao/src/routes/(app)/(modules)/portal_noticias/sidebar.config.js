@@ -81,7 +81,7 @@ export function configurePortalSidebar(activeKey, translate) {
 		}
 	];
 
-	sidebarRune.areas = NAV_SECTIONS.map((section) => {
+	sidebarRune.areas = NAV_SECTIONS.map((section, index) => {
 		const objetos = section.items.map((item) => ({
 			id_objeto: pageIds.portalNoticias[item.key].objectId,
 			descricao: translate(item.labelKey),
@@ -91,7 +91,7 @@ export function configurePortalSidebar(activeKey, translate) {
 		}));
 
 		return {
-			id_area: pageIds.portalNoticias.areaId,
+			id_area: pageIds.portalNoticias.areaId + index, // ID único para cada área
 			designacao: translate(section.labelKey),
 			ativo: true,
 			objetos

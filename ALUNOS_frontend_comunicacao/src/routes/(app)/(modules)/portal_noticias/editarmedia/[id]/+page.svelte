@@ -8,6 +8,7 @@
 	import { get } from 'svelte/store';
 	import { configurePortalSidebar } from '../../sidebar.config.js';
 	import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
+	import toastr from 'toastr';
 
 const translate = (key) => get(t)(key);
 configurePortalSidebar('dashboard', translate);
@@ -85,7 +86,7 @@ configurePortalSidebar('dashboard', translate);
 		formField = {
 			titulo: noticia.titulo,
 			descricao: noticia.texto,
-			nome_categoria: noticia.pn_categoria.nome,
+			nome_categoria: noticia.pn_categoria?.nome || '',
 			texto_facebook: noticia.texto_facebook,
 			texto_instagram: noticia.texto_instagram,
 			texto_twitter: noticia.texto_twitter,
@@ -93,13 +94,13 @@ configurePortalSidebar('dashboard', translate);
 			texto_tiktok: noticia.texto_tiktok,
 			id_categoria_FK: noticia.id_categoria_FK,
 			id_pedido: noticia.id_pedido,
-			anexos: noticia.pn_anexos,
-			tags: noticia.pn_noticia_Tag,
-			emails: noticia.emails,
+			anexos: noticia.pn_anexos || [],
+			tags: noticia.pn_noticia_Tag || [],
+			emails: noticia.emails || '',
 		};
 
-		selectedradiosjornais = formField.emails.split(',');
-		console.log('selectedradiosjornais : ', selectedradiosjornais);
+		selectedradiosjornais = formField.emails ? formField.emails.split(',').filter(Boolean) : [];
+		console.log('selectedradiosjornais : ', $state.snapshot(selectedradiosjornais));
 		await tick(); // Aguarda a renderização do select
 
 		// Atualiza a seleção manualmente no select
@@ -154,19 +155,41 @@ configurePortalSidebar('dashboard', translate);
 			if (codeArray[3] === '1') redes.push('LinkedIn');
 			if (codeArray[4] === '1') redes.push('Tiktok');
 
-			// Retorna o objeto atualizado
-			return { ...file, redes };
+			// Retorna o objeto atualizado com radios inicializado como array vazio
+			return { ...file, redes, radios: [] };
 		});
 
-		// Agora cada file em updatedAnexos terá a propriedade "redes" corretamente atribuída.
-		console.log("updatedAnexos 1 :", updatedAnexos);
+		// Carregar associações existentes de anexos com rádios/jornais
+		try {
+			const midiaAnexosResponse = await fetch(`/ep/portal_noticias/midia_anexos/${noticiaId}`);
+			if (midiaAnexosResponse.ok) {
+				const midiaAnexos = await midiaAnexosResponse.json();
+				
+				// Criar um mapa: id_anexo -> [id_radio_jornal, ...]
+				const anexoRadiosMap = {};
+				midiaAnexos.forEach((item) => {
+					if (!anexoRadiosMap[item.id_anexo]) {
+						anexoRadiosMap[item.id_anexo] = [];
+					}
+					anexoRadiosMap[item.id_anexo].push(item.id_radio_jornal);
+				});
 
-		// Remove the old key from each object
-		//updatedAnexos.forEach((anexo) => delete anexo.caminho_ficheiro);
+				// Atualizar updatedAnexos com as associações carregadas
+				updatedAnexos = updatedAnexos.map((anexo) => {
+					const radiosAssociados = anexoRadiosMap[anexo.id_anexo] || [];
+					return { ...anexo, radios: radiosAssociados };
+				});
+			}
+		} catch (error) {
+			console.error('Erro ao carregar associações de anexos:', error);
+		}
+
+		// Agora cada file em updatedAnexos terá a propriedade "redes" e "radios" corretamente atribuídas.
+		console.log("updatedAnexos com associações:", $state.snapshot(updatedAnexos));
 	});
 
 	function getCodeRedeSocial(redes) {
-		// We’re hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok
+		// We're hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok
 		const code = ['0', '0', '0', '0', '0'];
 
 		if (redes.includes('Instagram')) code[0] = '1';
@@ -191,7 +214,7 @@ configurePortalSidebar('dashboard', translate);
 	}
 
 	function listarNoticias() {
-		goto('/noticias');
+		goto('/portal_noticias/midia');
 	}
 
 	function toggleFileNetwork(file, networkName) {
@@ -206,8 +229,6 @@ configurePortalSidebar('dashboard', translate);
 	
 
 
-
-
 		console.log('file name:', file.name);
 		console.log('file redes:', file.redes);
 	}
@@ -215,12 +236,12 @@ configurePortalSidebar('dashboard', translate);
 	function selecionarRadioJornal(event) {
     	console.log("Select2 - Função chamada!");
 		selectedradiosjornais = globalThis.$(event.target).val() || [];
-		console.log("selectedradiosjornais 2 :", selectedradiosjornais);
+		console.log("selectedradiosjornais 2 :", $state.snapshot(selectedradiosjornais));
 	}
 
 	function removerRadioJornal(id) {
 		selectedradiosjornais = selectedradiosjornais.filter(rj => rj !== id);
-		console.log("selectedradiosjornais:", selectedradiosjornais);
+		console.log("selectedradiosjornais:", $state.snapshot(selectedradiosjornais));
 	}
 
 	function getNomeById(id) {
@@ -228,10 +249,83 @@ configurePortalSidebar('dashboard', translate);
 		return item ? item.nome : "Desconhecido";
 	}
 
+	// Função para toggle de rádios/jornais em anexos existentes
+	function toggleFileRadioExisting(fileIndex, radioId, checked) {
+		const file = updatedAnexos[fileIndex];
+		let radios = Array.isArray(file.radios) ? file.radios : [];
+
+		if (checked) {
+			if (!radios.includes(radioId)) {
+				radios = [...radios, radioId];
+			}
+		} else {
+			radios = radios.filter((id) => id !== radioId);
+		}
+
+		file.radios = radios;
+		updatedAnexos = [...updatedAnexos];
+	}
+
+	// Função para salvar associações de anexos com rádios/jornais
+	async function saveMidiaAnexos(idNoticiaCreated, anexosUploaded) {
+		const mapa = {};
+
+		// Processar anexos existentes (que não foram removidos)
+		updatedAnexos.forEach((file) => {
+			const radios = Array.isArray(file.radios) ? file.radios : [];
+			if (!file.id_anexo || radios.length === 0) return;
+
+			radios.forEach((idRadio) => {
+				if (!mapa[idRadio]) {
+					mapa[idRadio] = [];
+				}
+				mapa[idRadio].push(file.id_anexo);
+			});
+		});
+
+		// Processar novos anexos
+		anexos.forEach((file, idx) => {
+			const radios = Array.isArray(file.radios) ? file.radios : [];
+			// @ts-ignore
+			const uploaded = Array.isArray(anexosUploaded) ? anexosUploaded[idx] : null;
+
+			if (!uploaded || !uploaded.id_anexo || radios.length === 0) return;
+
+			radios.forEach((idRadio) => {
+				if (!mapa[idRadio]) {
+					mapa[idRadio] = [];
+				}
+				mapa[idRadio].push(uploaded.id_anexo);
+			});
+		});
+
+		const items = Object.entries(mapa).map(([id_radio_jornal, ids_anexos]) => ({
+			id_radio_jornal,
+			// @ts-ignore
+			ids_anexos
+		}));
+
+		const payload = {
+			id_noticia: idNoticiaCreated,
+			items
+		};
+
+		try {
+			await fetch('/ep/portal_noticias/midia_anexos', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+		} catch (e) {
+			console.error('Erro ao guardar anexos por rádio/jornal (ignorado):', e);
+		}
+	}
+
 
 	async function onHandleSubmit(event) {
 		event.preventDefault();
-		debugger
 
 		const titulo = formField.titulo;
 		const descricao = formField.descricao;
@@ -247,7 +341,7 @@ configurePortalSidebar('dashboard', translate);
 		const tags = selectedTags;
 		const id_pedido = formField.id_pedido;
 		const formDataAnexos = new FormData();
-		console.log("anexos 1 :", updatedAnexos);
+		console.log("anexos 1 :", $state.snapshot(updatedAnexos));
 
 
 		anexos.forEach((file) => {
@@ -319,11 +413,27 @@ configurePortalSidebar('dashboard', translate);
 				updatedNoticia.texto_tiktok = texto_tiktok;
 			else updatedNoticia.texto_tiktok = null;
 
-				await fetch(`/ep/portal_noticias/dados?id_noticia=${noticiaId}`,{
-					method: 'PUT',
-					body: JSON.stringify(updatedNoticia)
-				})
-			toastr.success('Adicionou uma noticia com sucesso!','SUCESSO!',{ timeOut: 5000, progressBar: true})
+			const resposta = await fetch(`/ep/portal_noticias/dados?id_noticia=${noticiaId}`,{
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(updatedNoticia)
+			});
+
+			if (!resposta.ok) {
+				const errorData = await resposta.json();
+				throw new Error(errorData.message || 'Erro ao atualizar notícia.');
+			}
+
+			const noticiaAtualizada = await resposta.json();
+			
+			// Salvar associações de anexos com rádios/jornais
+			if (noticiaId) {
+				await saveMidiaAnexos(noticiaId, anexosUploaded);
+			}
+
+			toastr.success('Notícia atualizada com sucesso!','SUCESSO!',{ timeOut: 5000, progressBar: true})
 			goto('/portal_noticias')
 			// goto('/noticias');
 
@@ -334,16 +444,37 @@ configurePortalSidebar('dashboard', translate);
 		const files = event.target.files;
 		anexos = [...anexos];
 
+		const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
+		const rejectedNames = [];
+
 		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+
+			if (!allowedTypes.includes(file.type)) {
+				rejectedNames.push(file.name);
+				continue;
+			}
+
 			// Cria uma URL de objeto para o arquivo atual
-			const fileUrl = URL.createObjectURL(files[i]);
+			const fileUrl = URL.createObjectURL(file);
 			// Adiciona a URL como uma propriedade do objeto do arquivo
-			files[i].url = fileUrl;
-			files[i].redes = [];
+			file.url = fileUrl;
+			file.redes = [];
+			// Inicializa arrays para redes sociais e rádios/jornais ligados a este ficheiro
+			file.radios = [];
 			// Adiciona o arquivo modificado ao array anexos
-			anexos.push(files[i]);
+			anexos.push(file);
 		}
-		console.log('Anexos selecionados:', anexos);
+
+		if (rejectedNames.length > 0 && typeof toastr !== 'undefined') {
+			toastr.warning(
+				`Alguns ficheiros foram ignorados por não serem suportados (apenas JPG, PNG, GIF, MP4): ${rejectedNames.join(', ')}`,
+				'Formato não suportado',
+				{ timeOut: 5000, progressBar: true }
+			);
+		}
+
+		console.log('Anexos selecionados:', $state.snapshot(anexos));
 	}
 
 	function handleSelectTag(tag) {
@@ -411,7 +542,7 @@ configurePortalSidebar('dashboard', translate);
 		{
 			icon_class: 'fas fa-list',
 			url: '#',
-			designacao: $t('divPublicar.listar'),
+			designacao: 'Listar Mídia',
 			function: listarNoticias
 		}
 	]);
@@ -429,10 +560,6 @@ configurePortalSidebar('dashboard', translate);
   margin-bottom: 5px; /* Spaces it right above the input */
   text-align: right; /* Aligns to the right side */
 }
-
-
-
-
 
 
 
@@ -539,6 +666,89 @@ configurePortalSidebar('dashboard', translate);
   font-size: 13px;
   color: #9aa9b8;
 }
+
+.selected-file {
+  background-color: #f8f9fa;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 5px;
+}
+
+.file-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: #007bff;
+}
+
+.file-link i {
+  margin-right: 8px;
+}
+
+.btn-delete {
+  background: none;
+  border: none;
+  color: red;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.btn-delete:hover {
+  color: darkred;
+}
+
+.file-networks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5%; /* More spacing between checkboxes */
+  justify-content: center; /* Center-align checkboxes */
+  padding-top: 10px;
+}
+
+.file-networks label {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* Space between checkbox and label text */
+  font-size: 14px;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 5px;
+  transition: background 0.3s;
+}
+
+.file-networks label:hover {
+  background: #f0f0f0;
+}
+
+.file-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-preview {
+  display: inline-flex;
+  justify-content: flex-start;
+}
+
+.file-preview-image {
+  max-width: 160px;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #dde3ea;
+}
 </style>
 
 
@@ -641,118 +851,90 @@ configurePortalSidebar('dashboard', translate);
 					</div>
 
 					{#if updatedAnexos.length > 0 || anexos.length > 0}
-						{#if updatedAnexos.length > 0}
-							<div class="selected-files mt-3" style="max-width: 600px; margin: 0 auto;">
-								<label class="form-label">{$t('divEditar.anexosExistentes')}</label>
-								{#each updatedAnexos as file, index (file)}
-									<div
-										class="selected-file d-flex align-items-center justify-content-between mt-2 p-2 border rounded"
-										id="sFile-{index}"
-										style="background-color: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"
-									>
-										<a
-											href={`/ep/portal_noticias/getFileById?id=${file.id_anexo}`}
-											target="_blank"
-											class="file-link d-flex align-items-center text-decoration-none"
-											style="font-weight: 500; color: #007bff; text-decoration: none;"
-										>
-											<i
-												class="fas fa-file-alt me-2 text-primary"
-												style="margin-right: 10px; font-size: 1.2em;"
-											></i>
-											{file.nome_original_ficheiro}
+						<div class="selected-files mt-3">
+							<label for="fileInput" class="form-label">{$t('divPublicar.sAnexos')}:</label>
+
+							{#each [...updatedAnexos, ...anexos] as file, index}
+								<div class="selected-file">
+									<div class="file-header">
+										<a href={file.url ? file.url : `/ep/portal_noticias/getFileById?id=${file.id_anexo}`} target="_blank" class="file-link">
+											<i class="fas fa-file-alt"></i> {file.nome_original_ficheiro || file.name}
 										</a>
 										<button
 											type="button"
-											onclick={() => removeFile(index)}
-											class="btn btn-sm btn-outline-danger"
-											style="display: flex; align-items: center; justify-content: center;"
+											class="btn-delete"
+											onclick={() => {
+												if (file.id_anexo) {
+													const fileIndex = updatedAnexos.findIndex(f => f.id_anexo === file.id_anexo);
+													if (fileIndex !== -1) {
+														removeFile(fileIndex);
+													}
+												} else {
+													const fileIndex = anexos.findIndex(f => f === file);
+													if (fileIndex !== -1) {
+														removeFileUploaded(fileIndex);
+													}
+												}
+											}}
 										>
 											<i class="fa fa-trash"></i>
 										</button>
-										
-										
+									</div>
 
+									<div class="file-body">
+											{#if file.tipo?.startsWith('image/') || file.type?.startsWith('image/')}
+												<div class="file-preview">
+													<img
+														src={file.url ? file.url : `/ep/portal_noticias/getFileById?id=${file.id_anexo}`}
+														alt={file.nome_original_ficheiro || file.name}
+														class="file-preview-image"
+													/>
+												</div>
+											{/if}
 
-
-
-
+											{#if selectedradiosjornais.length > 0}
+												<div class="mt-2">
+													<label class="form-label" style="font-size: 16px; font-weight: 600; margin-bottom: 15px;">RÁDIOS/JORNAIS:</label>
+													<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 10px 0;">
+														{#each selectedradiosjornais as idRj}
+															<label style="display: flex; align-items: center; gap: 8px; font-size: 16px; cursor: pointer; padding: 8px 12px; border-radius: 5px; transition: background 0.3s;">
+																<input
+																	type="checkbox"
+																	checked={Array.isArray(file.radios) && file.radios.includes(idRj)}
+																	onchange={(e) => {
+																		if (file.id_anexo) {
+																			const fileIndex = updatedAnexos.findIndex(f => f.id_anexo === file.id_anexo);
+																			if (fileIndex !== -1) {
+																				toggleFileRadioExisting(fileIndex, idRj, e.target.checked);
+																			}
+																		} else {
+																			const fileIndex = anexos.findIndex(f => f === file);
+																			if (fileIndex !== -1) {
+																				let radios = Array.isArray(file.radios) ? file.radios : [];
+																				if (e.target.checked) {
+																					if (!radios.includes(idRj)) {
+																						radios = [...radios, idRj];
+																					}
+																				} else {
+																					radios = radios.filter((id) => id !== idRj);
+																				}
+																				file.radios = radios;
+																				anexos = [...anexos];
+																			}
+																		}
+																	}}
+																	style="width: 18px; height: 18px; cursor: pointer;"
+																/>
+																{getNomeById(idRj)}
+															</label>
+														{/each}
+													</div>
+												</div>
+											{/if}
+										</div>
 									</div>
 								{/each}
 							</div>
-						{/if}
-						{#if anexos.length > 0}
-							<div class="selected-files mt-3" style="max-width: 600px; margin: 0 auto;">
-								<label class="form-label" for="Rs">{$t('divEditar.anexosUpload')}</label>
-								{#each anexos as file, index (file)}
-									<div
-										class="selected-file d-flex align-items-center justify-content-between mt-2 p-2 border rounded"
-										id="sFile-{index}"
-										style="background-color: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"
-									>
-										<a
-											href={file.url}
-											target="_blank"
-											class="file-link d-flex align-items-center text-decoration-none"
-											style="font-weight: 500; color: #007bff; text-decoration: none;"
-										>
-											<i
-												class="fas fa-file-alt me-2 text-primary"
-												style="margin-right: 10px; font-size: 1.2em;"
-											></i>
-											{file.name}
-										</a>
-
-										{#if selectedradiosjornais.length > 0}
-											<div class="mt-2">
-												{#each selectedradiosjornais as idRj}
-													<label class="me-3" style="font-size: 12px;">
-														<input
-															type="checkbox"
-															checked={Array.isArray(file.radios) && file.radios.includes(idRj)}
-															onchange={(e) => {
-																let radios = Array.isArray(file.radios) ? file.radios : [];
-																if (e.target.checked) {
-																	if (!radios.includes(idRj)) {
-																		radios = [...radios, idRj];
-																	}
-																} else {
-																	radios = radios.filter((id) => id !== idRj);
-																}
-																file.radios = radios;
-																anexos = [...anexos];
-															}}
-														/>
-														{getNomeById(idRj)}
-													</label>
-												{/each}
-											</div>
-										{/if}
-
-										<button
-											type="button"
-											onclick={() => removeFileUploaded(index)}
-											class="btn btn-sm btn-outline-danger"
-											style="display: flex; align-items: center; justify-content: center;"
-										>
-											<i class="fa fa-trash"></i>
-										</button>
-										
-										
-										
-
-
-
-
-
-									</div>
-									
-							
-									
-								
-								{/each}
-							</div>
-						{/if}
 					{:else}
 						<div class="alert alert-info mt-1" role="alert">
 							<i class="fas fa-info-circle"></i>
@@ -773,13 +955,7 @@ configurePortalSidebar('dashboard', translate);
 						{$t('divEditar.editarNoticia')}
 					</button>
 				</div>
-			
-			
 			</div>
-			
-
-
-		
 		</div>
 	</form>
 </div>

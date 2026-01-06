@@ -39,7 +39,11 @@ export class NoticiasController {
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: NoticiaDto) {
-    return this.noticiaService.updateNoticia(id, dto);
+    try {
+      return await this.noticiaService.updateNoticia(id, dto);
+    } catch (error: any) {
+      throw error;
+    }
   }
 
   @Put(':id/status')

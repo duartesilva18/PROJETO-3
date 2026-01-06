@@ -12,3 +12,4 @@ import { MidiaPersonalizadaService } from './midia_personalizada.service';
 export class MidiaPersonalizadaModule {}
 
 
+
