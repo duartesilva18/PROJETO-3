@@ -303,14 +303,15 @@ configurePortalSidebar('criarMedia', translate);
 	}
 
 	function getCodeRedeSocial(redes) {
-		// We’re hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok
-		const code = ['0', '0', '0', '0', '0'];
+		// We're hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok, 5=>Portal IPVC
+		const code = ['0', '0', '0', '0', '0', '0'];
 
 		if (redes.includes('Instagram')) code[0] = '1';
 		if (redes.includes('Facebook'))  code[1] = '1';
 		if (redes.includes('Twitter'))   code[2] = '1';
 		if (redes.includes('LinkedIn'))  code[3] = '1';
     if (redes.includes('Tiktok'))    code[4] = '1';
+    if (redes.includes('Portal IPVC')) code[5] = '1';
     
 		return code.join('');
 	
@@ -742,10 +743,11 @@ configurePortalSidebar('criarMedia', translate);
 
 .file-networks {
   display: flex;
-  flex-wrap: wrap;
-  gap: 5%; /* More spacing between checkboxes */
-  justify-content: center; /* Center-align checkboxes */
+  flex-wrap: nowrap;
+  gap: 30px;
+  justify-content: flex-start;
   padding-top: 10px;
+  overflow-x: auto;
 }
 
 .file-networks label {

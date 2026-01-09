@@ -92,6 +92,7 @@ configurePortalSidebar('dashboard', translate);
 			texto_twitter: noticia.texto_twitter,
 			texto_linkedin: noticia.texto_linkedin,
 			texto_tiktok: noticia.texto_tiktok,
+			texto_portalipvc: noticia.texto_portalipvc || '',
 			id_categoria_FK: noticia.id_categoria_FK,
 			id_pedido: noticia.id_pedido,
 			anexos: noticia.pn_anexos || [],
@@ -145,7 +146,11 @@ configurePortalSidebar('dashboard', translate);
 
 		updatedAnexos = formField.anexos.map(file => {
 			// Converte o code_rede_social para um array de caracteres
-			let codeArray = file.code_rede_social.split('');
+			let codeArray = (file.code_rede_social || '000000').split('');
+			// Garante que o array tem pelo menos 6 caracteres (pode ter menos se for um anexo antigo)
+			while (codeArray.length < 6) {
+				codeArray.push('0');
+			}
 
 			// Mapeia os índices onde há '1' para as respectivas redes sociais
 			let redes = [];
@@ -154,6 +159,7 @@ configurePortalSidebar('dashboard', translate);
 			if (codeArray[2] === '1') redes.push('Twitter');
 			if (codeArray[3] === '1') redes.push('LinkedIn');
 			if (codeArray[4] === '1') redes.push('Tiktok');
+			if (codeArray[5] === '1') redes.push('Portal IPVC');
 
 			// Retorna o objeto atualizado com radios inicializado como array vazio
 			return { ...file, redes, radios: [] };
@@ -189,14 +195,15 @@ configurePortalSidebar('dashboard', translate);
 	});
 
 	function getCodeRedeSocial(redes) {
-		// We're hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok
-		const code = ['0', '0', '0', '0', '0'];
+		// We're hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok, 5=>Portal IPVC
+		const code = ['0', '0', '0', '0', '0', '0'];
 
 		if (redes.includes('Instagram')) code[0] = '1';
 		if (redes.includes('Facebook'))  code[1] = '1';
 		if (redes.includes('Twitter'))   code[2] = '1';
 		if (redes.includes('LinkedIn'))  code[3] = '1';
 		if (redes.includes('Tiktok'))    code[4] = '1';
+		if (redes.includes('Portal IPVC')) code[5] = '1';
 		
 			return code.join('');
 	
@@ -710,10 +717,11 @@ configurePortalSidebar('dashboard', translate);
 
 .file-networks {
   display: flex;
-  flex-wrap: wrap;
-  gap: 5%; /* More spacing between checkboxes */
-  justify-content: center; /* Center-align checkboxes */
+  flex-wrap: nowrap;
+  gap: 30px;
+  justify-content: flex-start;
   padding-top: 10px;
+  overflow-x: auto;
 }
 
 .file-networks label {

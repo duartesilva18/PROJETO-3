@@ -7,6 +7,7 @@ import { FacebookService } from './facebook.service';
 import { TwitterService } from './twitter.service';
 import { InstagramService } from './instagram.service';
 import { LinkedInService } from './linkedin.service';
+import { PortalIPVCService } from './portalipvc.service';
 import { ImgurService } from './imgur.service';
 import { NoticiasService } from '../noticias/noticias.service';
 import { AnexosService } from '../anexos/anexos.service';
@@ -14,7 +15,7 @@ import { AnexosService } from '../anexos/anexos.service';
 @Module({
   imports: [ConfigModule.forRoot(), HttpModule],
   controllers: [RedesSociaisController],
-  providers: [RedesSociaisService, FacebookService, TwitterService, InstagramService, LinkedInService, NoticiasService, AnexosService, ImgurService],
+  providers: [RedesSociaisService, FacebookService, TwitterService, InstagramService, LinkedInService, PortalIPVCService, NoticiasService, AnexosService, ImgurService],
   exports: [RedesSociaisService],
 })
 export class RedesSociaisModule {}

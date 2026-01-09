@@ -156,5 +156,17 @@ export class RedesSociaisController {
   async postToImgur(@Body('image_id') id_image: string) {
     return this.rs_service.postToImgur(id_image);
   }
+
+  @Post('portalipvc')
+  @ApiOperation({ summary: 'Publica imediatamente no Portal IPVC (WordPress)' })
+  async postToPortalIPVC(
+    @Body('titulo') titulo: string,
+    @Body('conteudo') conteudo: string,
+    @Body('imageUrl') imageUrl: string | null,
+    @Body('tags') tags: string,
+    @Body('noticia_id') id_noticia: string,
+  ) {
+    return this.rs_service.postToPortalIPVC(titulo, conteudo, imageUrl, tags, id_noticia);
+  }
 }
 

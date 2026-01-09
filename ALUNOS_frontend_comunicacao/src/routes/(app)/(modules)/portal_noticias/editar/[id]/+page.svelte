@@ -90,6 +90,7 @@ let confirmDelete = $state({ open: false, target: null });
 				texto_twitter: noticia.texto_twitter || '',
 				texto_linkedin: noticia.texto_linkedin || '',
 				texto_tiktok: noticia.texto_tiktok || '',
+				texto_portalipvc: noticia.texto_portalipvc || '',
 				id_categoria_FK: noticia.id_categoria_FK || '',
 				id_pedido: noticia.id_pedido || null,
 				anexos: noticia.pn_anexos || [],
@@ -118,7 +119,11 @@ let confirmDelete = $state({ open: false, target: null });
 
 		updatedAnexos = (formField.anexos || []).map((file) => {
 			// Converte o code_rede_social para um array de caracteres
-			let codeArray = (file.code_rede_social || '00000').split('');
+			let codeArray = (file.code_rede_social || '000000').split('');
+			// Garante que o array tem pelo menos 6 caracteres (pode ter menos se for um anexo antigo)
+			while (codeArray.length < 6) {
+				codeArray.push('0');
+			}
 
 			// Mapeia os índices onde há '1' para as respectivas redes sociais
 			let redes = [];
@@ -127,6 +132,7 @@ let confirmDelete = $state({ open: false, target: null });
 			if (codeArray[2] === '1') redes.push('Twitter');
 			if (codeArray[3] === '1') redes.push('LinkedIn');
 			if (codeArray[4] === '1') redes.push('Tiktok');
+			if (codeArray[5] === '1') redes.push('Portal IPVC');
 
 			// Retorna o objeto atualizado
 			return { ...file, redes };
@@ -150,14 +156,15 @@ let confirmDelete = $state({ open: false, target: null });
 	});
 
 	function getCodeRedeSocial(redes) {
-		// We’re hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok
-		const code = ['0', '0', '0', '0', '0'];
+		// We're hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok, 5=>Portal IPVC
+		const code = ['0', '0', '0', '0', '0', '0'];
 
 		if (redes.includes('Instagram')) code[0] = '1';
 		if (redes.includes('Facebook'))  code[1] = '1';
 		if (redes.includes('Twitter'))   code[2] = '1';
 		if (redes.includes('LinkedIn'))  code[3] = '1';
 		if (redes.includes('Tiktok'))    code[4] = '1';
+		if (redes.includes('Portal IPVC')) code[5] = '1';
 		
 			return code.join('');
 	
@@ -206,6 +213,44 @@ let confirmDelete = $state({ open: false, target: null });
 		const typefile = file.name.split('.').pop().toLowerCase();
 
 		let aux = '';
+		
+		// Validação especial para Portal IPVC: só aceita 1 imagem
+		if (networkName === 'Portal IPVC') {
+			// Verificar se é uma imagem
+			if (typefile !== 'jpg' && typefile !== 'png' && typefile !== 'jpeg' && typefile !== 'gif') {
+				aux = 'Portal IPVC aceita apenas imagens (JPG, PNG, JPEG, GIF)';
+				return [false, aux];
+			}
+			
+			// Contar quantas imagens já estão associadas ao Portal IPVC (incluindo updatedAnexos)
+			let countImagesPortalIPVC = 0;
+			const allAnexos = [...updatedAnexos, ...anexos];
+			
+			for(let i = 0; i < allAnexos.length; i++) {
+				const anexoName = allAnexos[i].name || allAnexos[i].nome_original_ficheiro || '';
+				const anexotypefile = anexoName.split('.').pop().toLowerCase();
+				const isImage = anexotypefile === 'jpg' || anexotypefile === 'png' || anexotypefile === 'jpeg' || anexotypefile === 'gif';
+				
+				// Verificar se é um anexo diferente e se já está associado ao Portal IPVC
+				if (anexoName !== file.name && anexoName !== (file.nome_original_ficheiro || '')) {
+					if (isImage && allAnexos[i].redes && allAnexos[i].redes.includes('Portal IPVC')) {
+						countImagesPortalIPVC++;
+					}
+				}
+			}
+			
+			// Se já existe 1 imagem e este ficheiro não está selecionado, não permite adicionar mais
+			if (countImagesPortalIPVC >= 1 && !file.redes.includes('Portal IPVC')) {
+				aux = 'Portal IPVC aceita apenas 1 imagem. Já existe uma imagem selecionada para esta rede.';
+				return [false, aux];
+			}
+			
+			// Se este ficheiro já está selecionado, permite remover
+			if (file.redes && file.redes.includes('Portal IPVC')) {
+				return [true, aux];
+			}
+		}
+		
 		// Exibir o tipo do arquivo no console
 		console.log(`Tipo de arquivo: ${typefile}`);
 
@@ -237,11 +282,11 @@ let confirmDelete = $state({ open: false, target: null });
 				return [false, aux];
 				}
 			}
-			}
 		}
 		}
-		return [true, aux]; // Retorna o tipo de arquivo, caso necessário
 	}
+	return [true, aux]; // Retorna o tipo de arquivo, caso necessário
+  }
 
 	async function loadAgendamentos() {
 		agendamentosLoading = true;
@@ -524,22 +569,45 @@ let confirmDelete = $state({ open: false, target: null });
 				anexos: [...updatedAnexos, ...(Array.isArray(anexosUploaded) ? anexosUploaded : [])] // Ensure anexosUploaded is an array
 			};
 			
-			// Adiciona textos das redes sociais apenas se não forem nulos e estiverem nas redes selecionadas
-			if (getSelectedSocialNetworksNames.includes('Facebook') && texto_facebook != '')
-				updatedNoticia.texto_facebook = texto_facebook;
-			else updatedNoticia.texto_facebook = null;
-			if (getSelectedSocialNetworksNames.includes('Instagram') && texto_instagram != '')
-				updatedNoticia.texto_instagram = texto_instagram;
-			else updatedNoticia.texto_instagram = null;
-			if (getSelectedSocialNetworksNames.includes('Twitter') && texto_twitter != '')
-				updatedNoticia.texto_twitter = texto_twitter;
-			else updatedNoticia.texto_twitter = null;
-			if (getSelectedSocialNetworksNames.includes('LinkedIn') && texto_linkedin != '')
-				updatedNoticia.texto_linkedin = texto_linkedin;
-			else updatedNoticia.texto_linkedin = null;
-			if (getSelectedSocialNetworksNames.includes('Tiktok') && texto_tiktok != '')
-				updatedNoticia.texto_tiktok = texto_tiktok;
-			else updatedNoticia.texto_tiktok = null;
+			// Adiciona textos das redes sociais - se a rede estiver selecionada, usa o texto personalizado ou o texto padrão
+			// Isso garante que a tabela mostre o checkmark corretamente
+			if (getSelectedSocialNetworksNames.includes('Facebook')) {
+				updatedNoticia.texto_facebook = texto_facebook && texto_facebook.trim() != '' ? texto_facebook : descricao;
+			} else {
+				updatedNoticia.texto_facebook = null;
+			}
+			
+			if (getSelectedSocialNetworksNames.includes('Instagram')) {
+				updatedNoticia.texto_instagram = texto_instagram && texto_instagram.trim() != '' ? texto_instagram : descricao;
+			} else {
+				updatedNoticia.texto_instagram = null;
+			}
+			
+			if (getSelectedSocialNetworksNames.includes('Twitter')) {
+				updatedNoticia.texto_twitter = texto_twitter && texto_twitter.trim() != '' ? texto_twitter : descricao;
+			} else {
+				updatedNoticia.texto_twitter = null;
+			}
+			
+			if (getSelectedSocialNetworksNames.includes('LinkedIn')) {
+				updatedNoticia.texto_linkedin = texto_linkedin && texto_linkedin.trim() != '' ? texto_linkedin : descricao;
+			} else {
+				updatedNoticia.texto_linkedin = null;
+			}
+			
+			if (getSelectedSocialNetworksNames.includes('Tiktok')) {
+				updatedNoticia.texto_tiktok = texto_tiktok && texto_tiktok.trim() != '' ? texto_tiktok : descricao;
+			} else {
+				updatedNoticia.texto_tiktok = null;
+			}
+			
+			// Adiciona texto_portalipvc se Portal IPVC estiver selecionado
+			const texto_portalipvc = formField.texto_portalipvc || '';
+			if (getSelectedSocialNetworksNames.includes('Portal IPVC')) {
+				updatedNoticia.texto_portalipvc = texto_portalipvc && texto_portalipvc.trim() != '' ? texto_portalipvc : descricao;
+			} else {
+				updatedNoticia.texto_portalipvc = null;
+			}
 
 			try {
 				const response = await fetch(`/ep/portal_noticias/dados?id_noticia=${noticiaId}`, {
@@ -559,7 +627,8 @@ let confirmDelete = $state({ open: false, target: null });
 					timeOut: 5000,
 					progressBar: true
 				});
-				goto('/portal_noticias');
+				// Adiciona timestamp para forçar atualização da tabela
+				goto(`/portal_noticias?refresh=${Date.now()}`);
 			} catch (error) {
 				console.error('Erro ao atualizar notícia:', error);
 				toastr.error(
@@ -767,10 +836,11 @@ function addFilesFromList(fileList) {
 
 .file-networks {
   display: flex;
-  flex-wrap: wrap;
-  gap: 5%; /* More spacing between checkboxes */
-  justify-content: center; /* Center-align checkboxes */
+  flex-wrap: nowrap;
+  gap: 30px;
+  justify-content: flex-start;
   padding-top: 10px;
+  overflow-x: auto;
 }
 
 .file-networks label {
@@ -1100,7 +1170,7 @@ function addFilesFromList(fileList) {
 								{/if}
 
 								<div class="file-networks">
-									{#each ['Instagram', 'Facebook', 'Twitter', 'LinkedIn', 'Tiktok'] as network}
+									{#each ['Instagram', 'Facebook', 'Twitter', 'LinkedIn', 'Tiktok', 'Portal IPVC'] as network}
 										<label>
 											<input
 												type="checkbox"

@@ -233,13 +233,15 @@ model org_unidade {
 }
 
 model pn_anexos {
-  id_anexo               String      @id(map: "PK__pn_anexo__F5D8C19E3E410E05") @default(dbgenerated("newid()"), map: "DF__pn_anexos__id_an__693CA210") @db.UniqueIdentifier
-  nome_ficheiro          String?     @db.VarChar(255)
-  tipo                   String?     @db.VarChar(50)
-  id_noticia_FK          String?     @db.UniqueIdentifier
-  nome_original_ficheiro String?     @db.NVarChar(255)
-  code_rede_social       String?     @db.VarChar(5)
-  pn_noticia             pn_noticia? @relation(fields: [id_noticia_FK], references: [id_noticia], onDelete: NoAction, onUpdate: NoAction, map: "FK__pn_anexos__id_no__7C4F7684")
+  id_anexo                      String                          @id(map: "PK__pn_anexo__F5D8C19E3E410E05") @default(dbgenerated("newid()"), map: "DF__pn_anexos__id_an__693CA210") @db.UniqueIdentifier
+  nome_ficheiro                 String?                         @db.VarChar(255)
+  tipo                          String?                         @db.VarChar(50)
+  id_noticia_FK                 String?                         @db.UniqueIdentifier
+  nome_original_ficheiro        String?                         @db.NVarChar(255)
+  code_rede_social              String?                         @db.VarChar(5)
+  pn_noticia                    pn_noticia?                     @relation(fields: [id_noticia_FK], references: [id_noticia], onDelete: NoAction, onUpdate: NoAction, map: "FK__pn_anexos__id_no__7C4F7684")
+  pn_noticia_radio_jornal       pn_noticia_radio_jornal[]
+  pn_noticia_radio_jornal_anexo pn_noticia_radio_jornal_anexo[]
 
   @@schema("dbo")
 }
@@ -255,25 +257,28 @@ model pn_categoria {
 }
 
 model pn_noticia {
-  id_noticia      String           @id(map: "PK__pn_notic__1D4A6BA1793B260F") @default(dbgenerated("newid()"), map: "DF__pn_notici__id_no__6C190EBB") @db.UniqueIdentifier
-  titulo          String           @db.VarChar(255)
-  texto           String?          @db.Text
-  texto_linkedin  String?          @db.Text
-  texto_facebook  String?          @db.Text
-  texto_instagram String?          @db.Text
-  texto_twitter   String?          @db.Text
-  estado          String?          @default("Rascunho", map: "DF__pn_notici__estad__6D0D32F4") @db.VarChar(20)
-  data_criacao    DateTime?        @default(now(), map: "DF__pn_notici__data___6E01572D") @db.DateTime
-  id_categoria_FK String?          @db.UniqueIdentifier
-  texto_tiktok    String?          @db.Text
-  tipo            Int?
-  emails          String?          @db.NVarChar(Max)
-  id_pedido       Int?
-  pn_anexos       pn_anexos[]
-  pn_categoria    pn_categoria?    @relation(fields: [id_categoria_FK], references: [id_categoria], onDelete: NoAction, onUpdate: NoAction, map: "FK__pn_notici__id_ca__7D439ABD")
-  pn_noticia_Tag  pn_noticia_Tag[]
-  pn_rs_noticia   pn_rs_noticia[]
-  pn_agendamento_rede pn_agendamento_rede[]
+  id_noticia                    String                          @id(map: "PK__pn_notic__1D4A6BA1793B260F") @default(dbgenerated("newid()"), map: "DF__pn_notici__id_no__6C190EBB") @db.UniqueIdentifier
+  titulo                        String                          @db.VarChar(255)
+  texto                         String?                         @db.Text
+  texto_linkedin                String?                         @db.Text
+  texto_facebook                String?                         @db.Text
+  texto_instagram               String?                         @db.Text
+  texto_twitter                 String?                         @db.Text
+  estado                        String?                         @default("Rascunho", map: "DF__pn_notici__estad__6D0D32F4") @db.VarChar(20)
+  data_criacao                  DateTime?                       @default(now(), map: "DF__pn_notici__data___6E01572D") @db.DateTime
+  id_categoria_FK               String?                         @db.UniqueIdentifier
+  texto_tiktok                  String?                         @db.Text
+  tipo                          Int?
+  emails                        String?                         @db.NVarChar(Max)
+  id_pedido                     Int?
+  texto_portalipvc              String?                         @db.Text
+  pn_agendamento_rede           pn_agendamento_rede[]
+  pn_anexos                     pn_anexos[]
+  pn_categoria                  pn_categoria?                   @relation(fields: [id_categoria_FK], references: [id_categoria], onDelete: NoAction, onUpdate: NoAction, map: "FK__pn_notici__id_ca__7D439ABD")
+  pn_noticia_radio_jornal       pn_noticia_radio_jornal[]
+  pn_noticia_radio_jornal_anexo pn_noticia_radio_jornal_anexo[]
+  pn_noticia_Tag                pn_noticia_Tag[]
+  pn_rs_noticia                 pn_rs_noticia[]
 
   @@schema("dbo")
 }
@@ -289,19 +294,21 @@ model pn_noticia_Tag {
 }
 
 model pn_radio_jornal {
-  id_radio_jornal String   @id(map: "pn_radio_jornal_pk") @default(dbgenerated("newid()"), map: "DF__pn_radio___id_ra__6EF57B66") @db.UniqueIdentifier
-  nome            String   @db.VarChar(Max)
-  email           String   @unique(map: "pn_radio_jornal_pk_2") @db.VarChar(255)
-  data_criacao    DateTime @default(now(), map: "DF__pn_radio___data___6FE99F9F") @db.DateTime
+  id_radio_jornal               String                          @id(map: "pn_radio_jornal_pk") @default(dbgenerated("newid()"), map: "DF__pn_radio___id_ra__6EF57B66") @db.UniqueIdentifier
+  nome                          String                          @db.VarChar(Max)
+  email                         String                          @unique(map: "pn_radio_jornal_pk_2") @db.VarChar(255)
+  data_criacao                  DateTime                        @default(now(), map: "DF__pn_radio___data___6FE99F9F") @db.DateTime
+  pn_noticia_radio_jornal       pn_noticia_radio_jornal[]
+  pn_noticia_radio_jornal_anexo pn_noticia_radio_jornal_anexo[]
 
   @@schema("dbo")
 }
 
 model pn_redes_sociais {
-  id_rede_social String          @id(map: "PK__pn_redes__7BCAAC39FF4FAB43") @default(dbgenerated("newid()"), map: "DF__pn_redes___id_re__70DDC3D8") @db.UniqueIdentifier
-  nome           String          @db.VarChar(255)
-  pn_rs_noticia  pn_rs_noticia[]
+  id_rede_social      String                @id(map: "PK__pn_redes__7BCAAC39FF4FAB43") @default(dbgenerated("newid()"), map: "DF__pn_redes___id_re__70DDC3D8") @db.UniqueIdentifier
+  nome                String                @db.VarChar(255)
   pn_agendamento_rede pn_agendamento_rede[]
+  pn_rs_noticia       pn_rs_noticia[]
 
   @@schema("dbo")
 }
@@ -317,21 +324,21 @@ model pn_rs_noticia {
 }
 
 model pn_agendamento_rede {
-  id_agendamento   String          @id(map: "PK__pn_agend__3214EC2799999999") @default(dbgenerated("newid()")) @db.UniqueIdentifier
-  id_noticia       String          @db.UniqueIdentifier
-  id_rede_social   String          @db.UniqueIdentifier
-  horario_agendado DateTime        @db.DateTime
-  fuso_horario     String          @default("Europe/Lisbon") @db.VarChar(64)
-  status           String          @default("pendente") @db.VarChar(20)
-  tentativas       Int             @default(0)
-  ultima_execucao  DateTime?       @db.DateTime
-  mensagem_erro    String?         @db.NVarChar(1000)
-  data_criacao     DateTime        @default(now()) @db.DateTime
-  data_atualizacao DateTime        @default(now()) @updatedAt @db.DateTime
-  pn_noticia       pn_noticia      @relation(fields: [id_noticia], references: [id_noticia], onDelete: Cascade, onUpdate: NoAction, map: "FK__pn_agend__id_no__09090909")
-  pn_redes_sociais pn_redes_sociais @relation(fields: [id_rede_social], references: [id_rede_social], onDelete: Cascade, onUpdate: NoAction, map: "FK__pn_agend__id_re__08080808")
+  id_agendamento   String           @id(map: "PK_pn_agendamento_rede") @default(dbgenerated("newid()"), map: "DF__pn_agenda__id_ag__17036CC0") @db.UniqueIdentifier
+  id_noticia       String           @db.UniqueIdentifier
+  id_rede_social   String           @db.UniqueIdentifier
+  horario_agendado DateTime
+  fuso_horario     String           @default("Europe/Lisbon", map: "DF__pn_agenda__fuso___17F790F9") @db.VarChar(64)
+  status           String           @default("pendente", map: "DF__pn_agenda__statu__18EBB532") @db.VarChar(20)
+  tentativas       Int              @default(0, map: "DF__pn_agenda__tenta__19DFD96B")
+  ultima_execucao  DateTime?
+  mensagem_erro    String?
+  data_criacao     DateTime         @default(dbgenerated("sysutcdatetime()"), map: "DF__pn_agenda__data___1AD3FDA4")
+  data_atualizacao DateTime         @default(dbgenerated("sysutcdatetime()"), map: "DF__pn_agenda__data___1BC821DD") @updatedAt
+  pn_noticia       pn_noticia       @relation(fields: [id_noticia], references: [id_noticia], onUpdate: NoAction, map: "FK__pn_agend__id_no__09090909")
+  pn_redes_sociais pn_redes_sociais @relation(fields: [id_rede_social], references: [id_rede_social], onUpdate: NoAction, map: "FK__pn_agend__id_re__08080808")
 
-  @@unique([id_noticia, id_rede_social], map: "UQ__pn_agendamento_rede")
+  @@unique([id_noticia, id_rede_social], map: "UQ_pn_agendamento_rede")
   @@schema("dbo")
 }
 
@@ -354,4 +361,32 @@ model vendas {
   id_utilizador  String  @db.NVarChar(50)
 
   @@schema("exemplo")
+}
+
+model pn_noticia_radio_jornal {
+  id_noticia_radio_jornal String          @id(map: "pk_pn_noticia_radio_jornal") @default(dbgenerated("newid()"), map: "DF__pn_notici__id_no__29221CFB") @db.UniqueIdentifier
+  id_noticia              String          @db.UniqueIdentifier
+  id_radio_jornal         String          @db.UniqueIdentifier
+  texto_custom            String?         @db.NVarChar(Max)
+  data_criacao            DateTime        @default(now(), map: "df_pn_noticia_radio_jornal_data_criacao") @db.DateTime
+  id_anexo                String?         @db.UniqueIdentifier
+  pn_anexos               pn_anexos?      @relation(fields: [id_anexo], references: [id_anexo], onUpdate: NoAction, map: "FK_pn_noticia_radio_jornal_pn_anexos")
+  pn_noticia              pn_noticia      @relation(fields: [id_noticia], references: [id_noticia], onUpdate: NoAction, map: "fk_pn_nrj_noticia")
+  pn_radio_jornal         pn_radio_jornal @relation(fields: [id_radio_jornal], references: [id_radio_jornal], onUpdate: NoAction, map: "fk_pn_nrj_radio_jornal")
+
+  @@unique([id_noticia, id_radio_jornal], map: "uq_pn_nrj_noticia_radio")
+  @@schema("dbo")
+}
+
+model pn_noticia_radio_jornal_anexo {
+  id_noticia      String          @db.UniqueIdentifier
+  id_radio_jornal String          @db.UniqueIdentifier
+  id_anexo        String          @db.UniqueIdentifier
+  data_criacao    DateTime        @default(now(), map: "DF_pn_nrj_anexo_data_criacao") @db.DateTime
+  pn_anexos       pn_anexos       @relation(fields: [id_anexo], references: [id_anexo], onDelete: Cascade, onUpdate: NoAction, map: "FK_pn_nrj_anexo_pn_anexos")
+  pn_noticia      pn_noticia      @relation(fields: [id_noticia], references: [id_noticia], onDelete: Cascade, onUpdate: NoAction, map: "FK_pn_nrj_anexo_pn_noticia")
+  pn_radio_jornal pn_radio_jornal @relation(fields: [id_radio_jornal], references: [id_radio_jornal], onDelete: Cascade, onUpdate: NoAction, map: "FK_pn_nrj_anexo_pn_radio_jornal")
+
+  @@id([id_noticia, id_radio_jornal, id_anexo], map: "PK_pn_noticia_radio_jornal_anexo")
+  @@schema("dbo")
 }

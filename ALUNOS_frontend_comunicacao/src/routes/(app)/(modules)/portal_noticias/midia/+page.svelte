@@ -241,7 +241,7 @@
 
 				if (estado === ESTADO_PENDENTE) {
 					estadoClass = 'estado-pendente';
-					estado = 'Rascunho';
+					estado = 'Pendente';
 				} else if (estado === ESTADO_PUBLICADO) {
 					estadoClass = 'estado-publicado';
 				}
@@ -518,7 +518,7 @@
 						class="form-control"
 					>
 						<option value="">{ $t('divNoticias.todos') }</option>
-						<option value={ESTADO_PENDENTE}>Rascunho</option>
+						<option value={ESTADO_PENDENTE}>{ $t('divNoticias.pendente') }</option>
 						<option value={ESTADO_PUBLICADO}>{ $t('divNoticias.publicado') }</option>
 					</select>
 				</div>

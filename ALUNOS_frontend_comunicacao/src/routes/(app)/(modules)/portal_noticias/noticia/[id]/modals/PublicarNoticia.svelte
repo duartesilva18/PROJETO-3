@@ -28,19 +28,22 @@
 		Twitter: false,
 		Facebook: false,
 		LinkedIn: false,
-		Instagram: false
+		Instagram: false,
+		'Portal IPVC': false
 	});
 	let successStates = $state({
 		Twitter: false,
 		Facebook: false,
 		LinkedIn: false,
-		Instagram: false
+		Instagram: false,
+		'Portal IPVC': false
 	});
 	let errorStates = $state({
 		Twitter: false,
 		Facebook: false,
 		LinkedIn: false,
-		Instagram: false
+		Instagram: false,
+		'Portal IPVC': false
 	});
 
 	// Função para obter as tags formatadas como uma string
@@ -94,6 +97,7 @@
 		let texto_twitter = noticiaSelecionada.texto_twitter;
 		let texto_linkedin = noticiaSelecionada.texto_linkedin;
 		let texto_instagram = noticiaSelecionada.texto_instagram;
+		let texto_portalipvc = noticiaSelecionada.texto_portalipvc || noticiaSelecionada.texto || noticiaSelecionada.titulo;
 
 		const formattedTags = getFormattedTags(tagView, noticiaSelecionada.pn_noticia_Tag);
 		console.log("tou aqui 2313131");
@@ -285,6 +289,54 @@
 				}
 				loadingStates.Instagram = false;
 			}
+			if (selectedRedesSociais.includes('Portal IPVC') && texto_portalipvc) {
+				aux = 1;
+				loadingStates['Portal IPVC'] = true;
+
+				// Portal IPVC aceita apenas 1 imagem
+				const portalIPVCImages = imageAnexos.filter((anexo) => anexo.code_rede_social && anexo.code_rede_social[5] === '1').map((anexo) => anexo.id_anexo);
+
+				if (portalIPVCImages.length > 1) {
+					errorStates['Portal IPVC'] = true;
+					allSuccess = false;
+					loadingStates['Portal IPVC'] = false;
+					toastr.error('Portal IPVC aceita apenas 1 imagem. Por favor, selecione apenas uma imagem.', 'ERRO', {});
+				} else {
+					const portalIPVCMessage = `${texto_portalipvc} ${formattedTags}`;
+					const portalIPVCImageUrl = portalIPVCImages.length === 1 ? portalIPVCImages[0] : null;
+
+					try {
+						const portalIPVCResponse = await fetch('/ep/portal_noticias/redes/post/portalipvc', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json'
+							},
+							body: JSON.stringify({
+								titulo: noticiaSelecionada.titulo,
+								conteudo: portalIPVCMessage,
+								imageUrl: portalIPVCImageUrl,
+								tags: formattedTags,
+								noticia_id: noticiaSelecionada.id_noticia
+							})
+						});
+
+						if (!portalIPVCResponse.ok) {
+							errorStates['Portal IPVC'] = true;
+							allSuccess = false;
+							console.error('Erro ao publicar no Portal IPVC:', await portalIPVCResponse.json());
+						} else {
+							successStates['Portal IPVC'] = true;
+							const responseData = await portalIPVCResponse.json();
+							console.log(responseData);
+						}
+					} catch (error) {
+						console.error('Erro de rede ou servidor:', error);
+						errorStates['Portal IPVC'] = true;
+						allSuccess = false;
+					}
+					loadingStates['Portal IPVC'] = false;
+				}
+			}
 			if(aux === 0){
 				console.log("tamos aqui agora");
 				let novoStatus = "Publicado";
@@ -360,7 +412,7 @@ function formatAgendamentoLabel(agendamento) {
 					bind:group={selectedRedesSociais}
 					value={redeInfo.nome}
 					checked={selectedRedesSociais.includes(redeInfo.nome)}
-					disabled={successStates[redeInfo.nome] || (redeInfo.nome === 'Instagram' && !hasImages)}
+					disabled={successStates[redeInfo.nome] || (redeInfo.nome === 'Instagram' && !hasImages) || (redeInfo.nome === 'Portal IPVC' && imageAnexos.length > 1)}
 				/>
 				<div class="network-details">
 					<div class="network-title">
@@ -368,6 +420,11 @@ function formatAgendamentoLabel(agendamento) {
 						{#if redeInfo.nome === 'Instagram' && !hasImages && !hasVideos}
 							<span class="warn-label">
 								(Publicação no Instagram disponível apenas para notícias com imagens)
+							</span>
+						{/if}
+						{#if redeInfo.nome === 'Portal IPVC' && imageAnexos.length > 1}
+							<span class="warn-label">
+								(Portal IPVC aceita apenas 1 imagem)
 							</span>
 						{/if}
 					</div>

@@ -8,7 +8,8 @@ import RemoveModal from './noticia/[id]/modals/RemoveModal.svelte';
 import { configurePortalSidebar } from './sidebar.config.js';
 import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
+	import { page } from '$app/stores';
 
 import { get } from 'svelte/store';
 import toastr from 'toastr';
@@ -128,6 +129,11 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			(n) => n.estado !== 'eliminada' && isTipoNormal(n)
 		);
 		noticiasData = filteredNoticias;
+		
+		// Atualiza a tabela se já existir
+		if (table) {
+			refreshTable();
+		}
 	}
 
 	function showFullNews(noticia) {
@@ -225,7 +231,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			render: function (data, type, row) {
 				const estadoOriginal = (row[1] ?? '').toString();
 				const normalized = estadoOriginal.toLowerCase();
-				const hasAgendamento = Number(row[11]) > 0;
+				const hasAgendamento = Number(row[12]) > 0;
 				const isPending = normalized === 'pendente';
 				const isPublished = normalized === 'publicado';
 
@@ -256,7 +262,38 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 				`;
 			}
 		},
-		{ title: $t('divNoticias.dataCriacao'), width: '1%', orderable: false },
+		{ 
+			title: $t('divNoticias.dataCriacao'), 
+			width: '1%', 
+			orderable: true,
+			type: 'num', // Usa tipo numérico para ordenação correta por timestamp
+			render: function (data, type, row, meta) {
+				// Para ordenação, retorna timestamp da data original
+				if (type === 'sort' || type === 'type') {
+					// Extrai o timestamp do atributo data-order se existir
+					if (typeof data === 'string' && data.includes('data-order')) {
+						const match = data.match(/data-order="(\d+)"/);
+						if (match && match[1]) {
+							return parseInt(match[1]);
+						}
+					}
+					// Fallback: tenta converter a data formatada
+					const dateStr = typeof data === 'string' ? data.replace(/<[^>]*>/g, '') : data;
+					if (!dateStr || dateStr === '-') return 0;
+					const parts = dateStr.split('/');
+					if (parts.length === 3) {
+						const date = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+						return date.getTime();
+					}
+					return 0;
+				}
+				// Para exibição, retorna a data formatada (remove o span se existir)
+				if (typeof data === 'string' && data.includes('<span')) {
+					return data.replace(/<span[^>]*>|<\/span>/g, '');
+				}
+				return data;
+			}
+		},
 		{ title: 'Data agendamento', width: '1%', orderable: false },
 		{ title: $t('divNoticias.categoria'), width: '2%' },
 		{
@@ -315,6 +352,14 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			width: '1%',
 			render: (data, type, row) =>
 				row[9] !== null && row[9] !== ''
+					? `<div class="d-flex justify-content-center">✔️</div>`
+					: ''
+		},
+		{
+			title: 'Portal IPVC',
+			width: '1%',
+			render: (data, type, row) =>
+				row[10] !== null && row[10] !== ''
 					? `<div class="d-flex justify-content-center">✔️</div>`
 					: ''
 		},
@@ -385,7 +430,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			width: '1%',
 			render: (data, type, row, meta) => {
 				const isPending = row[1] === ESTADO_PENDENTE;
-				const hasSchedule = Number(row[11]) > 0;
+				const hasSchedule = Number(row[12]) > 0;
 				const publishLabel = 'Publicar';
 				const agendadoLabel = $t('divNoticias.agendado');
 				const isPublished = row[1] === ESTADO_PUBLICADO;
@@ -560,7 +605,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			responsive: true,
 			buttons: ['pageLength', 'pdf', 'csv', 'excel', 'copy', 'colvis'],
 			pageLength: 25,
-			order: [[1, 'desc']],
+			order: [[2, 'desc']], // Ordena por data de criação (mais recente primeiro)
 			drawCallback: function () {
 				jQuery('.datatable-on').parent().removeClass('container-fluid');
 				jQuery('#modulepage_content').fadeIn(600);
@@ -577,7 +622,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			responsive: true,
 			buttons: ['pageLength', 'pdf', 'csv', 'excel', 'copy', 'colvis'],
 			pageLength: 25,
-			order: [[1, 'desc']],
+			order: [[1, 'desc']], // Tabela de rádios - mantém ordenação por estado
 			language: locale.get() == 'pt' ? dt_pt : dt_en
 		});
 
@@ -589,6 +634,14 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 		setTimeout(() => {
 			toggleFeature();
 		}, 100);
+	});
+
+	// Recarrega os dados quando volta para a página (após edição)
+	afterNavigate(({ to, from }) => {
+		// Se está a navegar para esta página e a tabela já existe, recarrega os dados
+		if (to?.url.pathname === '/portal_noticias' && table) {
+			updateNoticias();
+		}
 	});
 
 	async function onDeleteRow() {
@@ -622,7 +675,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 			const rowData = [
 				`<div class="clickable-cell" data-rowindex="${index}">${noticia.titulo}</div>`,
 				noticia.estado,
-				formatDate(noticia.data_criacao),
+				`<span data-order="${noticia.data_criacao ? new Date(noticia.data_criacao).getTime() : 0}">${formatDate(noticia.data_criacao)}</span>`, // Data formatada com atributo data-order para ordenação correta
 				dataAgendamentoLabel,
 				noticia.pn_categoria?.nome ?? '-',
 				noticia.pn_anexos ?? [],
@@ -630,6 +683,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 				noticia.texto_instagram,
 				noticia.texto_linkedin,
 				noticia.texto_twitter,
+				noticia.texto_portalipvc,
 				noticia.texto_tiktok,
 				hasAgendamento ? 1 : 0
 			];
@@ -876,13 +930,9 @@ otíciasDatamedia.forEach((noticia, index) => {
 						class="form-control"
 					>
 						<option value="">{ $t('divNoticias.todos') }</option>
-						<option value={ESTADO_PENDENTE}>
-							{ !isToggled ? $t('divNoticias.pendente') : 'Rascunho' }
-						</option>
 						<option value={ESTADO_PUBLICADO}>{ $t('divNoticias.publicado') }</option>
-						{#if !isToggled}
-							<option value={AGENDADO_FILTER_VALUE}>{ $t('divNoticias.agendado') }</option>
-						{/if}
+						<option value={ESTADO_PENDENTE}>{ $t('divNoticias.pendente') }</option>
+						<option value={AGENDADO_FILTER_VALUE}>{ $t('divNoticias.agendado') }</option>
 					</select>
 				</div>
 	

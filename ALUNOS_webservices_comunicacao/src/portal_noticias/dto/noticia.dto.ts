@@ -113,6 +113,14 @@ export class NoticiaDto {
   texto_tiktok?: string;
 
   @ApiProperty({
+    description: 'Texto da notícia para o Portal IPVC',
+    example: 'Texto da notícia para o Portal IPVC'
+  })
+  @IsString()
+  @IsOptional()
+  texto_portalipvc?: string;
+
+  @ApiProperty({
     description: 'ID do pedido associado à notícia',
     example: 1
   })

@@ -59,7 +59,7 @@ import { preventDefault } from 'svelte/legacy';
 			responsive: true,
 			buttons: ['pageLength', 'pdf', 'csv', 'excel', 'copy', 'colvis'],
 			pageLength: 25,
-			order: [[2, 'asc']],
+			order: [[5, 'desc']], // Ordena por data de criação (coluna oculta, mais recente primeiro)
 			language: locale.get() === 'pt' ? dt_pt : dt_en
 		});
 		refreshTable();
@@ -80,6 +80,9 @@ import { preventDefault } from 'svelte/legacy';
 		try {
 			loadingData = true;
 			const response = await fetch('/ep/portal_noticias/redes/agendamentos');
+			if (!response.ok) {
+				throw new Error(`Erro ao carregar agendamentos: ${response.status}`);
+			}
 			const raw = await response.json();
 			// Backend pode devolver um array simples ou um objeto { agendamentos: [...] }
 			if (Array.isArray(raw)) {
@@ -90,14 +93,13 @@ import { preventDefault } from 'svelte/legacy';
 				console.warn('Formato inesperado de resposta de agendamentos:', raw);
 				agendamentos = [];
 			}
-			filteredAgendamentos = agendamentos;
 		} catch (error) {
 			console.error(error);
 			toastr.error('Não foi possível carregar os agendamentos.', 'Erro');
 			agendamentos = [];
-			filteredAgendamentos = [];
 		} finally {
 			loadingData = false;
+			// Aplicar filtros após carregar os dados
 			applyFilters();
 		}
 	}
@@ -127,6 +129,7 @@ import { preventDefault } from 'svelte/legacy';
 		table.clear();
 
 		filteredAgendamentos.forEach((item, index) => {
+			const dataCriacaoOrder = item.data_criacao ? new Date(item.data_criacao).getTime() : 0;
 			table
 				.row.add([
 					`<div class="clickable-cell" data-rowindex="${index}">${item.titulo ?? '-'}</div>`,
@@ -134,6 +137,7 @@ import { preventDefault } from 'svelte/legacy';
 					formatDateTime(item.horario_agendado),
 					item.fuso_horario ?? 'UTC',
 					renderStatusBadge(item.status),
+					`<span data-order="${dataCriacaoOrder}">${item.data_criacao ? formatDateTime(item.data_criacao) : '-'}</span>`, // Data de criação com atributo data-order para ordenação correta
 					actionButton('table_button_edit_agendamento', index, 'fa fa-edit', 'btn-outline-primary'),
 					actionButton('table_button_delete_agendamento', index, 'fa fa-trash', 'btn-outline-danger')
 				])
@@ -224,8 +228,14 @@ import { preventDefault } from 'svelte/legacy';
 		if (!value) return '';
 		const d = new Date(value);
 		if (Number.isNaN(d.getTime())) return '';
-		const iso = d.toISOString();
-		return iso.slice(0, 16);
+		// Converte para o formato datetime-local (YYYY-MM-DDTHH:mm)
+		// datetime-local usa o fuso horário local do browser
+		const year = d.getFullYear();
+		const month = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		const hours = String(d.getHours()).padStart(2, '0');
+		const minutes = String(d.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day}T${hours}:${minutes}`;
 	}
 
 	async function saveAgendamento() {
@@ -240,11 +250,32 @@ import { preventDefault } from 'svelte/legacy';
 
 		isSaving = true;
 		try {
+			// datetime-local retorna a data no fuso horário local do browser
+			// Precisamos converter para ISO considerando o fuso horário selecionado
+			const localDate = new Date(formState.horario_agendado);
+			if (Number.isNaN(localDate.getTime())) {
+				throw new Error('Data/hora inválida');
+			}
+
+			// Se o fuso horário for UTC, ajustamos a data
+			// Se for Europe/Lisbon, mantemos como está (datetime-local já está no fuso local)
+			let isoDate;
+			if (formState.fuso_horario === 'UTC') {
+				// Para UTC, precisamos subtrair o offset local
+				const offset = localDate.getTimezoneOffset(); // offset em minutos
+				isoDate = new Date(localDate.getTime() - (offset * 60 * 1000)).toISOString();
+			} else {
+				// Para Europe/Lisbon, assumimos que o browser já está no fuso correto
+				// ou convertemos considerando o offset de Lisboa (UTC+1 ou UTC+0 no verão)
+				// Por simplicidade, enviamos como está e deixamos o backend tratar
+				isoDate = localDate.toISOString();
+			}
+
 			const response = await fetch(`/ep/portal_noticias/redes/agendamentos/${formState.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					horario_agendado: new Date(formState.horario_agendado).toISOString(),
+					horario_agendado: isoDate,
 					fuso_horario: formState.fuso_horario,
 					status: formState.status
 				})
@@ -298,6 +329,27 @@ import { preventDefault } from 'svelte/legacy';
 		{ title: 'Horário', width: '20%' },
 		{ title: 'Fuso horário', width: '10%' },
 		{ title: 'Estado', width: '10%', orderable: false },
+		{ 
+			title: 'Data criação', 
+			width: '15%', 
+			visible: false, // Coluna oculta para ordenação
+			type: 'num', // Usa tipo numérico para ordenação correta
+			render: function (data, type, row) {
+				// Para ordenação, retorna timestamp
+				if (type === 'sort' || type === 'type') {
+					// Extrai o timestamp do atributo data-order se existir
+					const span = data.match(/data-order="(\d+)"/);
+					if (span && span[1]) {
+						return parseInt(span[1]);
+					}
+					// Fallback: tenta converter a data
+					if (!data || data === '-') return 0;
+					return new Date(data).getTime();
+				}
+				// Para exibição, retorna a data formatada (sem o span)
+				return data.replace(/<span[^>]*>|<\/span>/g, '');
+			}
+		},
 		{ title: '', orderable: false, width: '10%' },
 		{ title: '', orderable: false, width: '10%' }
 	];
@@ -312,12 +364,6 @@ import { preventDefault } from 'svelte/legacy';
 		return Array.from(redeMap.entries()).map(([id, nome]) => ({ id, nome }));
 	}
 
-	function mapStatusClass(status) {
-		const normalized = status?.toLowerCase();
-		if (normalized === 'enviado') return 'estado-publicado';
-		if (normalized === 'erro') return 'estado-rascunho';
-		return 'estado-pendente';
-	}
 </script>
 
 <Breadcrum

@@ -143,3 +143,5 @@ return strtolower($estado) === 'publicado';
 
 
 
+
+

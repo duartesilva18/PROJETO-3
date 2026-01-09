@@ -22,10 +22,18 @@ export class NoticiasService {
         texto_linkedin: true,
         texto_twitter: true,
         texto_tiktok: true,
+        texto_portalipvc: true,
         data_criacao: true,
         estado: true,
         emails: true,
-        pn_categoria: true,
+        pn_categoria: {
+          select: {
+            id_categoria: true,
+            nome: true,
+            descricao: true,
+            status: true
+          }
+        },
         pn_anexos: true,
         pn_noticia_Tag: true,
         pn_rs_noticia: true,
@@ -80,10 +88,18 @@ export class NoticiasService {
         texto_linkedin: true,
         texto_twitter: true,
         texto_tiktok: true,
+        texto_portalipvc: true,
         data_criacao: true,
         estado: true,
         emails: true,
-        pn_categoria: true,
+        pn_categoria: {
+          select: {
+            id_categoria: true,
+            nome: true,
+            descricao: true,
+            status: true
+          }
+        },
         pn_anexos: true,
         pn_noticia_Tag: true,
         pn_rs_noticia: true,
@@ -138,6 +154,7 @@ export class NoticiasService {
           texto_linkedin: dto.texto_linkedin,
           texto_twitter: dto.texto_twitter,
           texto_tiktok: dto.texto_tiktok,
+          texto_portalipvc: dto.texto_portalipvc,
           estado: dto.estado,
           emails: dto.emails,
           ...(hasIdPedido ? { id_pedido: parsedIdPedido } : {}),
@@ -250,6 +267,7 @@ export class NoticiasService {
         texto_linkedin: dto.texto_linkedin || null,
         texto_twitter: dto.texto_twitter || null,
         texto_tiktok: dto.texto_tiktok || null,
+        texto_portalipvc: dto.texto_portalipvc || null,
         estado: dto.estado,
         emails: dto.emails || null,
         ...(hasIdPedido ? { id_pedido: parsedIdPedido } : { id_pedido: null }),

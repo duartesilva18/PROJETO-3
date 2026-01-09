@@ -37,7 +37,9 @@ const NETWORK_FIELD_MAP = {
 	facebook: 'texto_facebook',
 	twitter: 'texto_twitter',
 	linkedin: 'texto_linkedin',
-	tiktok: 'texto_tiktok'
+	tiktok: 'texto_tiktok',
+	'portal ipvc': 'texto_portalipvc',
+	'portalipvc': 'texto_portalipvc'
 };
 
 	/**
@@ -54,6 +56,7 @@ const NETWORK_FIELD_MAP = {
 		texto_twitter: '',
 		texto_linkedin: '',
     texto_tiktok: '',
+    texto_portalipvc: '',
     id_pedido: 0,
 	});
 
@@ -368,14 +371,15 @@ function handleScheduleFieldChange(redeId, field, value) {
 	}
 
 	function getCodeRedeSocial(redes) {
-		// We’re hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok
-		const code = ['0', '0', '0', '0', '0'];
+		// We're hardcoding the order: 0=>Instagram, 1=>Facebook, 2=>Twitter, 3=>LinkedIn, 4=>Tiktok, 5=>Portal IPVC
+		const code = ['0', '0', '0', '0', '0', '0'];
 
 		if (redes.includes('Instagram')) code[0] = '1';
 		if (redes.includes('Facebook'))  code[1] = '1';
 		if (redes.includes('Twitter'))   code[2] = '1';
 		if (redes.includes('LinkedIn'))  code[3] = '1';
     if (redes.includes('Tiktok'))    code[4] = '1';
+    if (redes.includes('Portal IPVC')) code[5] = '1';
     
 		return code.join('');
 	
@@ -661,8 +665,39 @@ function handleDragLeave(event) {
     const typefile = file.name.split('.').pop().toLowerCase();
 
     let aux = '';
-    // Exibir o tipo do arquivo no console
+    
+    // Validação especial para Portal IPVC: só aceita 1 imagem
+    if (networkName === 'Portal IPVC') {
+      // Verificar se é uma imagem
+      if (typefile !== 'jpg' && typefile !== 'png' && typefile !== 'jpeg' && typefile !== 'gif') {
+        aux = 'Portal IPVC aceita apenas imagens (JPG, PNG, JPEG, GIF)';
+        return [false, aux];
+      }
+      
+      // Contar quantas imagens já estão associadas ao Portal IPVC
+      let countImagesPortalIPVC = 0;
+      for(let i = 0; i < anexos.length; i++) {
+        const anexotypefile = anexos[i].name.split('.').pop().toLowerCase();
+        const isImage = anexotypefile === 'jpg' || anexotypefile === 'png' || anexotypefile === 'jpeg' || anexotypefile === 'gif';
+        
+        if (anexos[i].name !== file.name && isImage && anexos[i].redes.includes('Portal IPVC')) {
+          countImagesPortalIPVC++;
+        }
+      }
+      
+      // Se já existe 1 imagem e este ficheiro não está selecionado, não permite adicionar mais
+      if (countImagesPortalIPVC >= 1 && !file.redes.includes('Portal IPVC')) {
+        aux = 'Portal IPVC aceita apenas 1 imagem. Já existe uma imagem selecionada para esta rede.';
+        return [false, aux];
+      }
+      
+      // Se este ficheiro já está selecionado, permite remover
+      if (file.redes.includes('Portal IPVC')) {
+        return [true, aux];
+      }
+    }
 
+    // Exibir o tipo do arquivo no console
     for(let j = 0; j < anexos.length; j++){
       if(anexos[j].name == file.name && anexos[j].redes.includes(networkName)){
         return [true, aux];
@@ -815,10 +850,11 @@ function handleDragLeave(event) {
 
 .file-networks {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10%;
+  flex-wrap: nowrap;
+  gap: 30px;
   padding-top: 8px;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-x: auto;
 }
 
 
@@ -1220,7 +1256,7 @@ function handleDragLeave(event) {
               </div>
             {/if}
             <div class="file-networks">
-              {#each ['Instagram', 'Facebook', 'Twitter', 'LinkedIn', 'Tiktok'] as network}
+              {#each ['Instagram', 'Facebook', 'Twitter', 'LinkedIn', 'Tiktok', 'Portal IPVC'] as network}
                 <label>
                   <input
                     type="checkbox"

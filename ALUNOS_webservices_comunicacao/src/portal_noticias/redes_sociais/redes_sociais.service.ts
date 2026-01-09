@@ -5,6 +5,7 @@ import { FacebookService } from './facebook.service';
 import { TwitterService } from './twitter.service';
 import { InstagramService } from './instagram.service';
 import { LinkedInService } from './linkedin.service';
+import { PortalIPVCService } from './portalipvc.service';
 import { ImgurService } from './imgur.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NoticiasService } from '../noticias/noticias.service';
@@ -18,6 +19,7 @@ export class RedesSociaisService implements OnModuleInit {
     private twitterService: TwitterService,
     private instagramService: InstagramService,
     private linkedinService: LinkedInService,
+    private portalIPVCService: PortalIPVCService,
     private noticiasService: NoticiasService,
     private imgurService: ImgurService
 
@@ -148,6 +150,12 @@ export class RedesSociaisService implements OnModuleInit {
     await this.noticiasService.updateNoticiaStatus(id_noticia,"Publicado")
     return res
   }
+
+  async postToPortalIPVC(titulo: string, conteudo: string, imageUrl: string | null, tags: string, id_noticia: string) {
+    let res = await this.portalIPVCService.postToPortalIPVC(titulo, conteudo, imageUrl, tags, id_noticia);
+    await this.noticiasService.updateNoticiaStatus(id_noticia,"Publicado")
+    return res
+  }
   
   async postToImgur(id_imagem: string) {
     let res = await this.imgurService.uploadVideoToImgur(id_imagem);
@@ -239,7 +247,14 @@ export class RedesSociaisService implements OnModuleInit {
   async listarTodosAgendamentos() {
     try {
     const agendamentos = await this.prisma.pn_agendamento_rede.findMany({
-      include: {
+      select: {
+        id_agendamento: true,
+        id_noticia: true,
+        id_rede_social: true,
+        horario_agendado: true,
+        fuso_horario: true,
+        status: true,
+        data_criacao: true,
         pn_redes_sociais: {
           select: {
             id_rede_social: true,
@@ -260,7 +275,7 @@ export class RedesSociaisService implements OnModuleInit {
         },
       },
       orderBy: {
-        horario_agendado: 'asc',
+        data_criacao: 'desc', // Ordena por data de criação (mais recente primeiro)
       },
     });
 
@@ -286,6 +301,7 @@ export class RedesSociaisService implements OnModuleInit {
       horario_agendado: agendamento.horario_agendado,
       fuso_horario: agendamento.fuso_horario,
       status: agendamento.status,
+      data_criacao: agendamento.data_criacao,
     }));
     } catch (error) {
       this.logger.error('Erro ao listar agendamentos', error?.stack ?? error);
@@ -414,7 +430,16 @@ export class RedesSociaisService implements OnModuleInit {
   async publicarNoticia(id_noticia: string, redesPermitidas?: string[]) {
     const noticia = await this.prisma.pn_noticia.findUnique({
       where: { id_noticia },
-      include: {
+      select: {
+        id_noticia: true,
+        titulo: true,
+        texto: true,
+        texto_facebook: true,
+        texto_instagram: true,
+        texto_twitter: true,
+        texto_linkedin: true,
+        texto_tiktok: true,
+        texto_portalipvc: true,
         pn_anexos: true,
         pn_noticia_Tag: {
           include: {
@@ -541,6 +566,30 @@ export class RedesSociaisService implements OnModuleInit {
             );
             this.logger.log(`Notícia ${id_noticia} publicada no LinkedIn`);
             results.push({ rede: 'LinkedIn', status: 'success' });
+            break;
+          }
+          case 'portal ipvc':
+          case 'portalipvc': {
+            const textoPortalIPVC = noticia.texto_portalipvc || noticia.texto || noticia.titulo;
+            const images = anexos.filter((anexo) => anexo.tipo?.startsWith('image/'));
+            
+            // Portal IPVC aceita apenas 1 imagem
+            if (images.length > 1) {
+              results.push({ rede: 'Portal IPVC', status: 'error', message: 'Portal IPVC aceita apenas 1 imagem' });
+              break;
+            }
+            
+            const imageUrl = images.length === 1 ? images[0].id_anexo : null;
+            
+            await this.postToPortalIPVC(
+              noticia.titulo,
+              textoPortalIPVC,
+              imageUrl,
+              formattedTags,
+              id_noticia
+            );
+            this.logger.log(`Notícia ${id_noticia} publicada no Portal IPVC`);
+            results.push({ rede: 'Portal IPVC', status: 'success' });
             break;
           }
           default:
