@@ -237,8 +237,8 @@
         "totalNoticiasSubtitle": "(todas exceto eliminadas)",
         "noticiasAgendadas": "Notícias Agendadas",
         "comAgendamento": "(com agendamento)",
-        "noticiasComAnexos": "Notícias com Anexos",
-        "comFicheiros": "(com ficheiros)"
+        "noticiasApenasPortalIPVC": "Notícias Portal IPVC",
+        "soPortalIPVC": "(apenas Portal IPVC)"
     }
 
 }

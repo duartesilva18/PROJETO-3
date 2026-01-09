@@ -231,7 +231,7 @@
         "totalNoticiasSubtitle": "(all except deleted)",
         "noticiasAgendadas": "Scheduled News",
         "comAgendamento": "(with scheduling)",
-        "noticiasComAnexos": "News with Attachments",
-        "comFicheiros": "(with files)"
+        "noticiasApenasPortalIPVC": "Portal IPVC News",
+        "soPortalIPVC": "(only Portal IPVC)"
     }
 }

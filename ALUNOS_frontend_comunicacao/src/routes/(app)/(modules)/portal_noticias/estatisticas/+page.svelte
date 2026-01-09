@@ -74,10 +74,28 @@
 			n.pn_agendamento_rede && Array.isArray(n.pn_agendamento_rede) && n.pn_agendamento_rede.length > 0
 		).length;
 
-		// Notícias com Anexos
-		const comAnexos = lista.filter((n) => 
-			n.pn_anexos && Array.isArray(n.pn_anexos) && n.pn_anexos.length > 0
-		).length;
+		// Notícias que foram APENAS para Portal IPVC
+		// Encontrar o ID da rede social Portal IPVC
+		const portalIPVC = redesSociais?.find((r) => r.nome === 'Portal IPVC');
+		const portalIPVCId = portalIPVC?.id_rede_social;
+		
+		const apenasPortalIPVC = lista.filter((n) => {
+			// Deve ter texto_portalipvc preenchido
+			if (!n.texto_portalipvc || n.texto_portalipvc.trim() === '') return false;
+			
+			// Deve ter pn_rs_noticia
+			if (!n.pn_rs_noticia || !Array.isArray(n.pn_rs_noticia) || n.pn_rs_noticia.length === 0) return false;
+			
+			// Deve ter APENAS Portal IPVC nas redes sociais (nenhuma outra)
+			if (!portalIPVCId) return false;
+			
+			const redesIds = n.pn_rs_noticia
+				.map((rs) => rs.id_rede_social_FK)
+				.filter(Boolean);
+			
+			// Deve ter exatamente 1 rede social e deve ser Portal IPVC
+			return redesIds.length === 1 && String(redesIds[0]) === String(portalIPVCId);
+		}).length;
 
 		return {
 			totalPublicacoes,
@@ -86,7 +104,7 @@
 			pendentes,
 			agendadas,
 			radiosDistintos,
-			comAnexos
+			apenasPortalIPVC
 		};
 	}
 
@@ -494,10 +512,23 @@ function updateCharts() {
 	});
 
 	// Cores para redes sociais (mais importantes primeiro)
+	// Ordem: Facebook, Instagram, Twitter, LinkedIn, Tiktok, Portal IPVC, outras
 	const coresRedesSociais = ['#1877f2', '#e4405f', '#1da1f2', '#0077b5', '#000000', '#ff0050', '#25f4ee', '#fe2c55'];
-	const backgroundColorRedes = redesSociaisData.labels.map((_, index) => 
-		coresRedesSociais[index % coresRedesSociais.length]
-	);
+	
+	// Mapear cores específicas para redes conhecidas
+	const coresPorRede = new Map([
+		['Facebook', '#1877f2'],
+		['Instagram', '#e4405f'],
+		['Twitter', '#1da1f2'],
+		['LinkedIn', '#0077b5'],
+		['Tiktok', '#000000'],
+		['Portal IPVC', '#ff6b35'] // Cor laranja/vermelho distintiva para Portal IPVC
+	]);
+	
+	const backgroundColorRedes = redesSociaisData.labels.map((label) => {
+		// Usar cor específica se existir, senão usar do array por índice
+		return coresPorRede.get(label) || coresRedesSociais[redesSociaisData.labels.indexOf(label) % coresRedesSociais.length];
+	});
 
 	redesSociaisChart = new Chart(redesSociaisChartCanvas, {
 		type: 'bar',
@@ -669,9 +700,9 @@ $effect(() => {
 		</div>
 		<div class="col-md-2 col-sm-6 mb-3">
 			<div class="kpi-card gradient-6">
-				<div class="kpi-value">{kpis.comAnexos}</div>
-				<div class="kpi-label">{$t('divEstatisticas.noticiasComAnexos')}</div>
-				<div class="kpi-subtitle">{$t('divEstatisticas.comFicheiros')}</div>
+				<div class="kpi-value">{kpis.apenasPortalIPVC}</div>
+				<div class="kpi-label">{$t('divEstatisticas.noticiasApenasPortalIPVC')}</div>
+				<div class="kpi-subtitle">{$t('divEstatisticas.soPortalIPVC')}</div>
 			</div>
 		</div>
 	</div>
