@@ -69,7 +69,7 @@ configurePortalSidebar('dashboard', translate);
 			);
 			resultString = matchedRadiosJornais.map((item) => `${item.nome}`).join(', ');
 
-			pedidoassunto = pedidos.find((p) => p.id === noticiaSelecionada.id_pedido)?.assunto ?? '';
+			pedidoassunto = pedidos.find((p) => p.id_projeto === noticiaSelecionada.id_projeto)?.assunto ?? '';
 
 			console.log(pedidoassunto);
 

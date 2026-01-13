@@ -30,7 +30,7 @@ configurePortalSidebar('criarMedia', translate);
 		texto_twitter: '',
 		texto_linkedin: '',
     texto_tiktok: '',
-    id_pedido: 0,
+    id_projeto: 0,
 	});
 
 	let showModal = $state(false);
@@ -102,7 +102,7 @@ configurePortalSidebar('criarMedia', translate);
   /**
 	 * @type {any[]}
 	 */
-	let pedidos = $state([]);
+ let projetos = $state([]);
 
   // ids selecionados no select de rádios/jornais
   let selectedradiosjornais = $state([]);
@@ -123,7 +123,7 @@ configurePortalSidebar('criarMedia', translate);
 
 		tags = await fetch('/ep/portal_noticias/tags').then((d) => d.json());
 
-		pedidos = await fetch('/ep/portal_noticias/getJson').then((d) => d.json());
+		projetos = await fetch('/ep/portal_noticias/getJson').then((d) => d.json());
 
 		radio_jornal = await fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json());
 
@@ -334,18 +334,18 @@ configurePortalSidebar('criarMedia', translate);
     const texto_twitter = formField.texto_twitter;
     const texto_linkedin = formField.texto_linkedin;
     const texto_tiktok = formField.texto_tiktok;
-    const id_pedido =  parseInt(formField.id_pedido, 10);
+    const id_projeto =  parseInt(formField.id_projeto, 10);
     const redesSociais = getSelectedSocialNetworksNames();
     const selectedSocialNetworks = getSelectedSocialNetworks();
     const tags = selectedTags;
     console.log("id_categoria_FK:", id_categoria_FK);
 
-    if (isNaN(id_pedido)) {
-      console.log("ID do pedido inválido. Selecione um pedido válido. 1");
+    if (isNaN(id_projeto)) {
+      console.log("ID do projeto inválido. Selecione um projeto válido. 1");
    
     }
-    if (id_pedido <= 0) {
-      console.log("ID do pedido inválido. Selecione um pedido válido. 2");
+    if (id_projeto <= 0) {
+      console.log("ID do projeto inválido. Selecione um projeto válido. 2");
    
     }
     
@@ -408,9 +408,9 @@ configurePortalSidebar('criarMedia', translate);
         formData.append('texto_tiktok', texto_tiktok);
       }
 
-      console.log(typeof id_pedido, id_pedido); // Deve exibir: "number" e um valor inteiro
+      console.log(typeof id_projeto, id_projeto); // Deve exibir: "number" e um valor inteiro
 
-      formData.append('id_pedido', id_pedido);
+      formData.append('id_projeto', id_projeto);
 			formData.append('id_categoria_FK', id_categoria_FK);
       formData.append('redesSociais', JSON.stringify(selectedSocialNetworks));
       formData.append('tags', JSON.stringify(tags));
@@ -866,11 +866,11 @@ configurePortalSidebar('criarMedia', translate);
 
 
         <div class="form-group">
-          <label>{$t('divPublicar.Pedidos')}:<span style="color: red;">*</span></label>
-          <select bind:value={formField.id_pedido} class="form-control" required>
-            <option value="">{$t('divPublicar.selPedido')}</option>
-            {#each pedidos as pedido}
-              <option value={pedido.id}>{pedido.assunto}</option>
+          <label>Projetos:<span style="color: red;">*</span></label>
+          <select bind:value={formField.id_projeto} class="form-control" required>
+            <option value="">Selecione um projeto</option>
+            {#each projetos as projeto}
+              <option value={projeto.id_projeto}>{projeto.assunto}</option>
             {/each}
           </select>
         </div>

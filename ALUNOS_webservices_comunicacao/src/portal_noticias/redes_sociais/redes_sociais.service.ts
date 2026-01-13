@@ -152,9 +152,29 @@ export class RedesSociaisService implements OnModuleInit {
   }
 
   async postToPortalIPVC(titulo: string, conteudo: string, imageUrl: string | null, tags: string, id_noticia: string) {
+    // Validar que id_noticia está presente e é válido
+    if (!id_noticia || id_noticia.trim() === '') {
+      throw new BadRequestException('ID da notícia é obrigatório');
+    }
+
+    // Validar que título está presente
+    if (!titulo || titulo.trim() === '') {
+      throw new BadRequestException('Título da notícia é obrigatório');
+    }
+
+    // Validar que conteúdo está presente
+    if (!conteudo || conteudo.trim() === '') {
+      throw new BadRequestException('Conteúdo da notícia é obrigatório');
+    }
+
     let res = await this.portalIPVCService.postToPortalIPVC(titulo, conteudo, imageUrl, tags, id_noticia);
-    await this.noticiasService.updateNoticiaStatus(id_noticia,"Publicado")
-    return res
+    
+    // Atualizar status apenas se a publicação foi bem-sucedida
+    if (res && res.success !== false) {
+      await this.noticiasService.updateNoticiaStatus(id_noticia, "Publicado");
+    }
+    
+    return res;
   }
   
   async postToImgur(id_imagem: string) {

@@ -270,8 +270,9 @@ model pn_noticia {
   texto_tiktok                  String?                         @db.Text
   tipo                          Int?
   emails                        String?                         @db.NVarChar(Max)
-  id_pedido                     Int?
+  id_projeto                    Int?
   texto_portalipvc              String?                         @db.Text
+  pn_projeto                    pn_projeto?                     @relation(fields: [id_projeto], references: [id_projeto], onDelete: NoAction, onUpdate: NoAction, map: "FK__pn_noticia__id_pr__proj")
   pn_agendamento_rede           pn_agendamento_rede[]
   pn_anexos                     pn_anexos[]
   pn_categoria                  pn_categoria?                   @relation(fields: [id_categoria_FK], references: [id_categoria], onDelete: NoAction, onUpdate: NoAction, map: "FK__pn_notici__id_ca__7D439ABD")
@@ -279,6 +280,17 @@ model pn_noticia {
   pn_noticia_radio_jornal_anexo pn_noticia_radio_jornal_anexo[]
   pn_noticia_Tag                pn_noticia_Tag[]
   pn_rs_noticia                 pn_rs_noticia[]
+
+  @@schema("dbo")
+}
+
+model pn_projeto {
+  id_projeto   Int           @id @default(autoincrement()) @map("id_projeto") @db.Int
+  assunto      String        @db.NVarChar(255)
+  descricao    String?       @db.NVarChar(Max)
+  estado       String?       @default("Ativo") @db.VarChar(20)
+  data_criacao DateTime?     @default(now()) @db.DateTime
+  pn_noticia   pn_noticia[]
 
   @@schema("dbo")
 }

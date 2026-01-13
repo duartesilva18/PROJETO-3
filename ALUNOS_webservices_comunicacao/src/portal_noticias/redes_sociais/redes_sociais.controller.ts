@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, BadRequestException } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AgendarNoticiaRedesDto, AtualizaAgendamentoDto } from "../dto/agendamento_redes.dto";
 import { Redes_Sociais_Dto } from "../dto/redes_sociais.dto";
@@ -166,7 +166,18 @@ export class RedesSociaisController {
     @Body('tags') tags: string,
     @Body('noticia_id') id_noticia: string,
   ) {
-    return this.rs_service.postToPortalIPVC(titulo, conteudo, imageUrl, tags, id_noticia);
+    // Validar campos obrigatórios
+    if (!titulo || !conteudo || !id_noticia) {
+      throw new BadRequestException('Campos obrigatórios: titulo, conteudo, noticia_id');
+    }
+
+    return this.rs_service.postToPortalIPVC(
+      titulo, 
+      conteudo, 
+      imageUrl || null, 
+      tags || '', 
+      id_noticia
+    );
   }
 }
 

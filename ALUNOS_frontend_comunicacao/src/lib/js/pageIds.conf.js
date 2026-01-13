@@ -24,5 +24,6 @@ export let pageIds = {
         agendamentos:{ moduleId: modules.portalNoticias, objectId: 7 },
         midiaList:   { moduleId: modules.portalNoticias, objectId: 8 },
         estatisticas:{ moduleId: modules.portalNoticias, objectId: 9 },
+        projetos:    { moduleId: modules.portalNoticias, objectId: 10 },
     },
 }

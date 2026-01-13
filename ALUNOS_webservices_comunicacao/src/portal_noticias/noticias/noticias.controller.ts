@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { NoticiaDto } from '../dto/noticia.dto';
 import { NoticiasService } from './noticias.service';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('PortalNoticias')
 @Controller('portal_noticias/noticias')
@@ -62,5 +62,23 @@ export class NoticiasController {
   @Get(':id')
   async getNoticia(@Param('id') id: string) {
     return this.noticiaService.getNoticia(id);
+  }
+
+  @Get('portal-ipvc/list')
+  @ApiOperation({ 
+    summary: 'Lista notícias selecionadas para Portal IPVC',
+    description: 'Retorna todas as notícias que têm a rede social "Portal IPVC" selecionada. Ideal para integração com WordPress.'
+  })
+  @ApiQuery({ 
+    name: 'apenasPublicadas', 
+    required: false, 
+    type: Boolean,
+    description: 'Se true, retorna apenas notícias com estado "Publicado". Padrão: false'
+  })
+  async getNoticiasPortalIPVC(
+    @Query('apenasPublicadas') apenasPublicadas?: string
+  ) {
+    const apenasPublicadasBool = apenasPublicadas === 'true' || apenasPublicadas === '1';
+    return this.noticiaService.getNoticiasPortalIPVC(apenasPublicadasBool);
   }
 }

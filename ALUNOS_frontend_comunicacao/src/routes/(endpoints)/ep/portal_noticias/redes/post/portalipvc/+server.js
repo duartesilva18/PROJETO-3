@@ -28,3 +28,6 @@ export async function POST({ url, cookies, fetch, locals, request }) {
     return json(responseData); // Retornando a resposta como um JSON válido para o SvelteKit
 }
 
+
+
+

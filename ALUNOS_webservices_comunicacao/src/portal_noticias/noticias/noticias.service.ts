@@ -46,7 +46,7 @@ export class NoticiasService {
             status: true
           }
         },
-        id_pedido: true,
+        id_projeto: true,
         tipo: true
       }
     });
@@ -112,7 +112,7 @@ export class NoticiasService {
             status: true
           }
         },
-        id_pedido: true,
+        id_projeto: true,
         tipo: true
       },
       where
@@ -133,15 +133,15 @@ export class NoticiasService {
   }
 
   async createNoticias(dto: NoticiaDto) {
-    // tratar id_pedido e tipo como numbers (aceita string "1" ou number 1)
-    const parsedIdPedido =
-      dto.id_pedido !== undefined && dto.id_pedido !== null
-        ? Number(dto.id_pedido)
+    // tratar id_projeto e tipo como numbers (aceita string "1" ou number 1)
+    const parsedIdProjeto =
+      dto.id_projeto !== undefined && dto.id_projeto !== null
+        ? Number(dto.id_projeto)
         : NaN;
     const parsedTipo =
       dto.tipo !== undefined && dto.tipo !== null ? Number(dto.tipo) : NaN;
 
-    const hasIdPedido = Number.isFinite(parsedIdPedido);
+    const hasIdProjeto = Number.isFinite(parsedIdProjeto);
     const hasTipo = Number.isFinite(parsedTipo);
 
     return this.prisma.$transaction(async (tx) => {
@@ -157,8 +157,10 @@ export class NoticiasService {
           texto_portalipvc: dto.texto_portalipvc,
           estado: dto.estado,
           emails: dto.emails,
-          ...(hasIdPedido ? { id_pedido: parsedIdPedido } : {}),
           ...(hasTipo ? { tipo: parsedTipo } : {}),
+          ...(hasIdProjeto
+            ? { pn_projeto: { connect: { id_projeto: parsedIdProjeto } } }
+            : {}),
           pn_categoria: {
             connect: { id_categoria: dto.id_categoria_FK }
           },
@@ -248,14 +250,14 @@ export class NoticiasService {
       throw new BadRequestException('Notícia não encontrada');
     }
 
-    const parsedIdPedido =
-      dto.id_pedido !== undefined && dto.id_pedido !== null
-        ? Number(dto.id_pedido)
+    const parsedIdProjeto =
+      dto.id_projeto !== undefined && dto.id_projeto !== null
+        ? Number(dto.id_projeto)
         : NaN;
     const parsedTipo =
       dto.tipo !== undefined && dto.tipo !== null ? Number(dto.tipo) : NaN;
 
-    const hasIdPedido = Number.isFinite(parsedIdPedido);
+    const hasIdProjeto = Number.isFinite(parsedIdProjeto);
     const hasTipo = Number.isFinite(parsedTipo);
 
     try {
@@ -270,8 +272,10 @@ export class NoticiasService {
         texto_portalipvc: dto.texto_portalipvc || null,
         estado: dto.estado,
         emails: dto.emails || null,
-        ...(hasIdPedido ? { id_pedido: parsedIdPedido } : { id_pedido: null }),
         ...(hasTipo ? { tipo: parsedTipo } : { tipo: null }),
+        pn_projeto: hasIdProjeto
+          ? { connect: { id_projeto: parsedIdProjeto } }
+          : { disconnect: true },
         pn_categoria: {
           connect: { id_categoria: dto.id_categoria_FK }
         }
@@ -390,6 +394,113 @@ export class NoticiasService {
       });
     } catch {
       return { message: 'Não foi possível concluir o pedido' };
+    }
+  }
+
+  /**
+   * Lista todas as notícias que foram selecionadas para a rede social "Portal IPVC"
+   * @param apenasPublicadas - Se true, retorna apenas notícias com estado "Publicado"
+   * @returns Array de notícias com Portal IPVC selecionado
+   */
+  async getNoticiasPortalIPVC(apenasPublicadas: boolean = false) {
+    try {
+      // Primeiro, encontrar o ID da rede social "Portal IPVC"
+      const portalIPVC = await this.prisma.pn_redes_sociais.findFirst({
+        where: {
+          nome: 'Portal IPVC'
+        },
+        select: {
+          id_rede_social: true
+        }
+      });
+
+      if (!portalIPVC) {
+        return [];
+      }
+
+      // Construir o filtro where
+      const where: any = {
+        pn_rs_noticia: {
+          some: {
+            id_rede_social_FK: portalIPVC.id_rede_social
+          }
+        }
+      };
+
+      // Se apenasPublicadas for true, adicionar filtro de estado
+      if (apenasPublicadas) {
+        where.estado = 'Publicado';
+      }
+
+      // Buscar notícias com Portal IPVC selecionado
+      const noticias = await this.prisma.pn_noticia.findMany({
+        where,
+        select: {
+          id_noticia: true,
+          titulo: true,
+          texto: true,
+          texto_portalipvc: true,
+          data_criacao: true,
+          estado: true,
+          emails: true,
+          pn_categoria: {
+            select: {
+              id_categoria: true,
+              nome: true,
+              descricao: true,
+              status: true
+            }
+          },
+          pn_anexos: {
+            where: {
+              // Filtrar apenas anexos que são imagens e estão associados ao Portal IPVC
+              tipo: {
+                startsWith: 'image/'
+              }
+            },
+            select: {
+              id_anexo: true,
+              nome_ficheiro: true,
+              nome_original_ficheiro: true,
+              tipo: true,
+              code_rede_social: true
+            }
+          },
+          pn_noticia_Tag: {
+            select: {
+              pn_tag: {
+                select: {
+                  id_tag: true,
+                  nome: true
+                }
+              }
+            }
+          },
+          pn_rs_noticia: {
+            where: {
+              id_rede_social_FK: portalIPVC.id_rede_social
+            },
+            select: {
+              pn_redes_sociais: {
+                select: {
+                  id_rede_social: true,
+                  nome: true
+                }
+              }
+            }
+          },
+          id_projeto: true,
+          tipo: true
+        },
+        orderBy: {
+          data_criacao: 'desc' // Mais recentes primeiro
+        }
+      });
+
+      return noticias;
+    } catch (error) {
+      console.error('Erro ao buscar notícias do Portal IPVC:', error);
+      return [];
     }
   }
 }

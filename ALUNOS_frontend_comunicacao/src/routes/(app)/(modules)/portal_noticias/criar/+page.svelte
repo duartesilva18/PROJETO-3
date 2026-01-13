@@ -57,7 +57,7 @@ const NETWORK_FIELD_MAP = {
 		texto_linkedin: '',
     texto_tiktok: '',
     texto_portalipvc: '',
-    id_pedido: 0,
+    id_projeto: 0,
 	});
 
 	let showModal = $state(false);
@@ -141,7 +141,7 @@ let selectedTags = $state([]);
   /**
 	 * @type {any[]}
 	 */
-	let pedidos = $state([]);
+let projetos = $state([]);
 
 
  /**
@@ -171,7 +171,7 @@ let selectedTags = $state([]);
 			.then((d) => d.json())
 			.then((lista) => (Array.isArray(lista) ? lista : []));
 	
-    pedidos = await fetch('/ep/portal_noticias/getJson').then(d => d.json())
+    projetos = await fetch('/ep/portal_noticias/getJson').then(d => d.json())
 
     radio_jornal = await fetch('/ep/portal_noticias/radio_jornal').then(d => d.json())
 
@@ -397,7 +397,7 @@ function handleScheduleFieldChange(redeId, field, value) {
     const descricao = formField.descricao;
     const estado = 'Pendente';
     const id_categoria_FK = formField.id_categoria_FK;
-    const id_pedido =  formField.id_pedido;
+    const id_projeto =  formField.id_projeto;
 
     const redesSelecionadasNomes = getSelectedSocialNetworksNames();
     const selectedSocialNetworks = getSelectedSocialNetworks();
@@ -432,12 +432,12 @@ function handleScheduleFieldChange(redeId, field, value) {
       );
       return;
     }
-    if (isNaN(id_pedido)) {
-      console.log("ID do pedido inválido. Selecione um pedido válido. 1");
+    if (isNaN(id_projeto)) {
+      console.log("ID do projeto inválido. Selecione um projeto válido. 1");
    
     }
-    if (id_pedido <= 0) {
-      console.log("ID do pedido inválido. Selecione um pedido válido. 2");
+    if (id_projeto <= 0) {
+      console.log("ID do projeto inválido. Selecione um projeto válido. 2");
    
     }
     
@@ -492,7 +492,7 @@ function handleScheduleFieldChange(redeId, field, value) {
       });
 
   
-      formData.append('id_pedido',  id_pedido);
+      formData.append('id_projeto',  id_projeto);
 			formData.append('id_categoria_FK', id_categoria_FK);
       formData.append('redesSociais', JSON.stringify(selectedSocialNetworks));
       formData.append('tags', JSON.stringify(tags));
@@ -733,7 +733,7 @@ function handleDragLeave(event) {
   }
 
   function selecionarPedido(event) {
-    formField.id_pedido = event.target.value; // Atualiza o formField com o ID selecionado
+    formField.id_projeto = event.target.value; // Atualiza o formField com o ID selecionado
   }
 
 	function handleFileChangeForNetwork(event, redeSocial) {
@@ -1165,11 +1165,11 @@ function handleDragLeave(event) {
 
 
         <div class="form-group">
-          <label>{$t('divPublicar.Pedidos')}:<span style="color: red;">*</span></label>
+          <label>Projetos:<span style="color: red;">*</span></label>
           <select onchange={selecionarPedido} class="form-control" required>
-            <option value="" disabled selected>{$t('divPublicar.selPedido')}</option>
-            {#each pedidos as pedido}
-              <option value={pedido.id}>{pedido.assunto}</option>
+            <option value="" disabled selected>Selecione um projeto</option>
+            {#each projetos as projeto}
+              <option value={projeto.id_projeto}>{projeto.assunto}</option>
             {/each}
           </select>
         </div>

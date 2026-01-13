@@ -121,13 +121,13 @@ export class NoticiaDto {
   texto_portalipvc?: string;
 
   @ApiProperty({
-    description: 'ID do pedido associado à notícia',
+    description: 'ID do projeto associado à notícia',
     example: 1
   })
   @IsInt()
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10)) 
-  id_pedido?: number;
+  @Transform(({ value }) => parseInt(value, 10))
+  id_projeto?: number;
 
   @ApiProperty({
     description: 'Lista de e-mails (separados por vírgula)',

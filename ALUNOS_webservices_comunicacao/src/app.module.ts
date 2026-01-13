@@ -10,6 +10,7 @@ import { RadioJornalModule } from './portal_noticias/radio_jornal/radio_jornal.m
 import { MidiaPersonalizadaModule } from './portal_noticias/midia_personalizada/midia_personalizada.module';
 import { MidiaAnexosModule } from './portal_noticias/midia_anexos/midia_anexos.module';
 import { TagsModule } from "./portal_noticias/tags/tags.module";
+import { ProjetosModule } from './portal_noticias/projetos/projetos.module';
 
 import { CategoriaModule } from "./portal_noticias/categoria/categoria.module";
 import { AnexosModule } from "./portal_noticias/anexos/anexos.module";
@@ -31,6 +32,7 @@ import { RedesSociaisModule } from './portal_noticias/redes_sociais/redes_sociai
     TagsModule,
     MidiaPersonalizadaModule,
     MidiaAnexosModule,
+    ProjetosModule,
     FuncoesBaseModule,
   ]
 })

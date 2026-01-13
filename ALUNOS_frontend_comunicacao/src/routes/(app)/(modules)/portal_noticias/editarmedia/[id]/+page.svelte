@@ -29,7 +29,7 @@ configurePortalSidebar('dashboard', translate);
 		texto_tiktok: '',
 		anexos: '',
 		tags: '',
-		id_pedido: 0,
+		id_projeto: 0,
 		code: '00000',
 		emails: '',
 	});
@@ -56,7 +56,7 @@ configurePortalSidebar('dashboard', translate);
 
 	let redesSociais = $state([]);
 	let categorias = $state([]);
-	let pedidos = $state([]);
+let projetos = $state([]);
 	let tags = $state([]);
 	let newTag = $state('');
 	let selectedTags = $state([]);
@@ -69,7 +69,7 @@ configurePortalSidebar('dashboard', translate);
 	onMount(async () => {
 		const noticia = await fetch(`/ep/portal_noticias/noticia?id=${noticiaId}`).then(d => d.json())
 		categorias = await fetch('/ep/portal_noticias/categorias').then(d => d.json())
-		pedidos = await fetch('/ep/portal_noticias/getJson').then(d => d.json())
+		projetos = await fetch('/ep/portal_noticias/getJson').then(d => d.json())
 		radio_jornal = await fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json())
 
 		redesSociais = await fetch('/ep/portal_noticias/redes').then((d) => d.json())
@@ -94,7 +94,7 @@ configurePortalSidebar('dashboard', translate);
 			texto_tiktok: noticia.texto_tiktok,
 			texto_portalipvc: noticia.texto_portalipvc || '',
 			id_categoria_FK: noticia.id_categoria_FK,
-			id_pedido: noticia.id_pedido,
+			id_projeto: noticia.id_projeto,
 			anexos: noticia.pn_anexos || [],
 			tags: noticia.pn_noticia_Tag || [],
 			emails: noticia.emails || '',
@@ -346,7 +346,7 @@ configurePortalSidebar('dashboard', translate);
 		const selectedSocialNetworks = getSelectedSocialNetworks();
 		const getSelectedSocialNetworksNames = getSelectedSocialNames();
 		const tags = selectedTags;
-		const id_pedido = formField.id_pedido;
+		const id_projeto = formField.id_projeto;
 		const formDataAnexos = new FormData();
 		console.log("anexos 1 :", $state.snapshot(updatedAnexos));
 
@@ -398,7 +398,7 @@ configurePortalSidebar('dashboard', translate);
 				id_categoria_FK: String(id_categoria_FK),
 				redesSociais: selectedSocialNetworks, // Ensure this is an array
 				tags: tags, // Ensure this is an array
-				id_pedido: id_pedido,
+				id_projeto: id_projeto,
 				emails : selectedradiosjornais.join(','),
 				anexos: [...updatedAnexos, ...(Array.isArray(anexosUploaded) ? anexosUploaded : [])] // Ensure anexosUploaded is an array
 			};
@@ -818,11 +818,11 @@ configurePortalSidebar('dashboard', translate);
 				
 
 				<div class="form-group">
-					<label>{$t('divPublicar.Pedidos')}:<span style="color: red;">*</span></label>
-					<select bind:value={formField.id_pedido} class="form-control" required>
-					  <option value="">{$t('divPublicar.selPedido')}</option>
-					  {#each pedidos as pedido}
-						<option value={pedido.id}>{pedido.assunto}</option>
+					<label>Projetos:<span style="color: red;">*</span></label>
+					<select bind:value={formField.id_projeto} class="form-control" required>
+					  <option value="">Selecione um projeto</option>
+					  {#each projetos as projeto}
+						<option value={projeto.id_projeto}>{projeto.assunto}</option>
 					  {/each}
 					</select>
 				  </div>

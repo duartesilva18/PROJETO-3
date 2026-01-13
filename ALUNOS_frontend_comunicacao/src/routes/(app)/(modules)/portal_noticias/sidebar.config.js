@@ -10,6 +10,7 @@ const NAV_SECTIONS = [
 			{ key: 'dashboard', path: '/portal_noticias', labelKey: 'sidebarPortal.dashboard' },
 			{ key: 'categorias', path: '/portal_noticias/categorias', labelKey: 'sidebarPortal.categorias' },
 			{ key: 'tags', path: '/portal_noticias/tags', labelKey: 'sidebarPortal.tags' },
+			{ key: 'projetos', path: '/portal_noticias/projetos', labelKey: 'sidebarPortal.projetos' },
 			{
 				key: 'agendamentos',
 				path: '/portal_noticias/agendamentos',
