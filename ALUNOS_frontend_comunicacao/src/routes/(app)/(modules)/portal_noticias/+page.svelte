@@ -115,12 +115,12 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 
 	function handleSelect(noticia) {
 		noticiaSelecionada = noticia;
-		goto(`/portal_noticias/editar/${noticia.id_noticia}`);
+		goto(`/portal_noticias/noticias-editar/${noticia.id_noticia}`);
 	}
 
 	function handleSelectdois(noticia) {
 		noticiaSelecionada = noticia;
-		goto(`/portal_noticias/editarmedia/${noticia.id_noticia}`);
+		goto(`/portal_noticias/noticias-editar-midia/${noticia.id_noticia}`);
 	}
 
 	async function updateNoticias() {
@@ -137,7 +137,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 	}
 
 	function showFullNews(noticia) {
-		goto(`/portal_noticias/noticia/${noticia.id_noticia}`);
+		goto(`/portal_noticias/noticias-detalhe/${noticia.id_noticia}`);
 	}
 
 	function onHandleSubmit(e) {
@@ -217,7 +217,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 	}
 
 	function createNoticia() {
-		goto('portal_noticias/criar');
+		goto('/portal_noticias/noticias-criar');
 	}
 
 	let table = $state();

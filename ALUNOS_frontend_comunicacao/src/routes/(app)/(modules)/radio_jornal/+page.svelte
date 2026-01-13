@@ -152,7 +152,7 @@ configurePortalSidebar('radios', translate);
 	 */
 	function handleSelect(noticia) {
 		noticiaSelecionada = noticia;
-		goto(`/portal_noticias/editar/${noticia.id_noticia}`);
+		goto(`/portal_noticias/noticias-editar/${noticia.id_noticia}`);
 	}
 
 	/**
@@ -177,7 +177,7 @@ configurePortalSidebar('radios', translate);
 	 * @param {Object} noticia - A notícia a ser exibida.
 	 */
 	function showFullNews(noticia) {
-		goto(`/portal_noticias/noticia/${noticia.id_noticia}`);
+		goto(`/portal_noticias/noticias-detalhe/${noticia.id_noticia}`);
 	}
 
 	/**
@@ -340,7 +340,7 @@ async function adicionarRadio() {
 	 * Mudar para a pagina de criar noticia.
 	 */
 	function createNoticia() {
-		goto('portal_noticias/criar');
+		goto('/portal_noticias/noticias-criar');
 	}
 
 	/**

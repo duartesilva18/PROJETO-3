@@ -81,16 +81,16 @@
 	function handleSelectMedia(noticia) {
 		if (!noticia?.id_noticia) return;
 		// abrir página de detalhe, tal como no portal de notícias
-		goto(`/portal_noticias/noticia/${noticia.id_noticia}`);
+		goto(`/portal_noticias/noticias-detalhe/${noticia.id_noticia}`);
 	}
 
 	function createMidia() {
-		goto('/portal_noticias/criarmedia');
+		goto('/portal_noticias/noticias-criar-midia');
 	}
 
 	function handleEditMidia(noticia) {
 		if (!noticia?.id_noticia) return;
-		goto(`/portal_noticias/editarmedia/${noticia.id_noticia}`);
+		goto(`/portal_noticias/noticias-editar-midia/${noticia.id_noticia}`);
 	}
 
 	function onHandleSubmit(e) {

@@ -198,20 +198,18 @@ configurePortalSidebar('dashboard', translate);
 	}
 
 	function createNoticia() {
-		if(noticiaSelecionada.tipo === 0){
-			goto(`/portal_noticias/criar`);
-		}else if(noticiaSelecionada.tipo === 1){
-			goto(`/portal_noticias/criarmedia`);
+		if (noticiaSelecionada.tipo === 0) {
+			goto(`/portal_noticias/noticias-criar`);
+		} else if (noticiaSelecionada.tipo === 1) {
+			goto(`/portal_noticias/noticias-criar-midia`);
 		}
-		
-	
 	}
 
 	function editNoticia() {
 		if (noticiaSelecionada?.tipo === 0) {
-			goto(`/portal_noticias/editar/${noticiaId}`);
+			goto(`/portal_noticias/noticias-editar/${noticiaId}`);
 		} else if (noticiaSelecionada?.tipo === 1) {
-			goto(`/portal_noticias/editarmedia/${noticiaId}`);
+			goto(`/portal_noticias/noticias-editar-midia/${noticiaId}`);
 		}
 	}
 

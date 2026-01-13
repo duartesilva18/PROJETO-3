@@ -9,8 +9,8 @@ const NAV_SECTIONS = [
 		items: [
 			{ key: 'dashboard', path: '/portal_noticias', labelKey: 'sidebarPortal.dashboard' },
 			{ key: 'categorias', path: '/portal_noticias/categorias', labelKey: 'sidebarPortal.categorias' },
-			{ key: 'tags', path: '/portal_noticias/tags', labelKey: 'sidebarPortal.tags' },
-			{ key: 'projetos', path: '/portal_noticias/projetos', labelKey: 'sidebarPortal.projetos' },
+			{ key: 'tags', path: '/portal_noticias/tags-listar', labelKey: 'sidebarPortal.tags' },
+			{ key: 'projetos', path: '/portal_noticias/projetos-listar', labelKey: 'sidebarPortal.projetos' },
 			{
 				key: 'agendamentos',
 				path: '/portal_noticias/agendamentos',
@@ -28,7 +28,7 @@ const NAV_SECTIONS = [
 			},
 			{
 				key: 'criarMedia',
-				path: '/portal_noticias/criarmedia',
+				path: '/portal_noticias/noticias-criar-midia',
 				labelKey: 'sidebarPortal.criarMedia'
 			},
 			{
