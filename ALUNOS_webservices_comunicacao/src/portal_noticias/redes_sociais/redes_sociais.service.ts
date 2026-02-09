@@ -183,15 +183,46 @@ export class RedesSociaisService implements OnModuleInit {
   }
 
   onModuleInit() {
-    // Job simples em memória: corre a cada 60 segundos
-    setInterval(() => {
-      this.processarAgendamentosPendentes().catch((error) => {
-        this.logger.error(
-          `Erro no job de agendamentos: ${error?.message ?? error}`,
-          error?.stack,
-        );
-      });
-    }, 60_000);
+    // Inicia o ciclo de agendamento inteligente para as janelas fixas (08h, 12h, 16h, 20h)
+    this.agendarProximaJanela();
+  }
+
+  /**
+   * Calcula o tempo restante para a próxima janela de publicação e agenda a execução.
+   * Garante que o servidor não seja sobrecarregado com verificações inúteis a cada minuto.
+   */
+  private agendarProximaJanela() {
+    const agora = new Date();
+    const janelas = [8, 12, 16, 20];
+    
+    // Encontra a próxima hora disponível no dia de hoje
+    let proximaHora = janelas.find(h => h > agora.getHours());
+    const dataProxima = new Date(agora);
+
+    if (proximaHora === undefined) {
+      // Se já passou das 20h, a próxima janela é às 08h do dia seguinte
+      proximaHora = 8;
+      dataProxima.setDate(dataProxima.getDate() + 1);
+    }
+
+    // Define a hora exata: minuto 0, segundo 0
+    dataProxima.setHours(proximaHora, 0, 0, 0);
+
+    const milisegundosEmFalta = dataProxima.getTime() - agora.getTime();
+
+    this.logger.log(`[JOB] Próxima janela de publicação: ${dataProxima.toLocaleString()}. Aguardando ${Math.round(milisegundosEmFalta / 1000 / 60)} min.`);
+
+    // Agenda a execução para o momento exato
+    setTimeout(async () => {
+      try {
+        await this.processarAgendamentosPendentes();
+      } catch (error) {
+        this.logger.error(`Erro ao processar agendamentos: ${error?.message}`);
+      } finally {
+        // Após a execução (sucesso ou erro), agenda a próxima janela (recursivo)
+        this.agendarProximaJanela();
+      }
+    }, milisegundosEmFalta);
   }
 
   async agendarRedes(dto: AgendarNoticiaRedesDto) {
@@ -223,6 +254,17 @@ export class RedesSociaisService implements OnModuleInit {
       const horario = new Date(agendamento.horario_agendado);
       if (Number.isNaN(horario.getTime())) {
         throw new BadRequestException(`Horário inválido para a rede ${agendamento.id_rede_social}`);
+      }
+
+      const hora = horario.getHours();
+      const minuto = horario.getMinutes();
+
+      // Validar se o horário corresponde a uma das janelas permitidas (08:00, 12:00, 16:00, 20:00)
+      if (![8, 12, 16, 20].includes(hora) || minuto !== 0) {
+        throw new BadRequestException(
+          `Horário inválido (${hora.toString().padStart(2, '0')}:${minuto.toString().padStart(2, '0')}). ` +
+          `Os agendamentos só são permitidos às 08:00, 12:00, 16:00 ou 20:00.`
+        );
       }
 
       return {
@@ -364,8 +406,23 @@ export class RedesSociaisService implements OnModuleInit {
       throw new NotFoundException('Agendamento não encontrado.');
     }
 
+    const horario = new Date(dto.horario_agendado);
+    if (Number.isNaN(horario.getTime())) {
+      throw new BadRequestException('Horário inválido.');
+    }
+
+    const hora = horario.getHours();
+    const minuto = horario.getMinutes();
+
+    if (![8, 12, 16, 20].includes(hora) || minuto !== 0) {
+      throw new BadRequestException(
+        `Horário inválido (${hora.toString().padStart(2, '0')}:${minuto.toString().padStart(2, '0')}). ` +
+        `Os agendamentos só são permitidos às 08:00, 12:00, 16:00 ou 20:00.`
+      );
+    }
+
     const data: Prisma.pn_agendamento_redeUpdateInput = {
-      horario_agendado: new Date(dto.horario_agendado),
+      horario_agendado: horario,
     };
 
     if (dto.fuso_horario) {

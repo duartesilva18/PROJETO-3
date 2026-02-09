@@ -98,7 +98,8 @@
         "actions":"Ações",
         "anexo": "Anexo",
         "anexos": "Anexos",
-        "sanexos": "S/ Anexos"
+        "sanexos": "S/ Anexos",
+        "pesquisarPlaceholder": "Pesquisar por título ou assunto..."
     },
   
     "divRedes": {

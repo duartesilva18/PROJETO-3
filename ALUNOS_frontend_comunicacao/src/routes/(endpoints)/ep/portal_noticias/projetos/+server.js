@@ -98,3 +98,14 @@ export async function DELETE({ fetch, locals, url }) {
 	return json(body ? JSON.parse(body) : {});
 }
 
+
+
+
+
+
+
+
+
+
+
+

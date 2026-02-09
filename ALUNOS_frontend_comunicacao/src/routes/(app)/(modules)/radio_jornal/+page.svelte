@@ -146,38 +146,11 @@ configurePortalSidebar('radios', translate);
 	
 
 
-	/**
-	 * Array para armazenar as notícias por página.
-	 * @param {Object} noticia
-	 */
-	function handleSelect(noticia) {
-		noticiaSelecionada = noticia;
-		goto(`/portal_noticias/noticias-editar/${noticia.id_noticia}`);
-	}
-
-	/**
-	 * Função para excluir uma notícia.
-	 * @param {Object} noticia - A notícia a ser excluída.
-	 */
-
-	/**
-	 * Função para atualizar as notícias.
-	 */
 	async function updateMedia() {
 		originalradiosjornaisData = await fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json());
-	
-		
 		filteredradios = originalradiosjornaisData;
 		radiosData = originalradiosjornaisData;
 		refreshTable();
-	}
-
-	/**
-	 * Função para exibir a notícia completa.
-	 * @param {Object} noticia - A notícia a ser exibida.
-	 */
-	function showFullNews(noticia) {
-		goto(`/portal_noticias/noticias-detalhe/${noticia.id_noticia}`);
 	}
 
 	/**
@@ -340,7 +313,7 @@ async function adicionarRadio() {
 	 * Mudar para a pagina de criar noticia.
 	 */
 	function createNoticia() {
-		goto('/portal_noticias/noticias-criar');
+		goto('/portal_noticias/rede-social/criar');
 	}
 
 	/**
@@ -366,48 +339,49 @@ async function adicionarRadio() {
 		{ title: $t('divNoticias.Nome'), width: '20%' },
 		{
 			title: $t('divNoticias.Email'),
-			width: '20%',
-			// @ts-ignore
-			render: function (data, type, row, meta) {
-				return row[1];
-			}
+			width: '20%'
 		},
 		{ title: $t('divNoticias.dataCriacao'), width: '1%', orderable: false },
 		{
-			title: '', // No title for edit button column
-			orderable: false, // Prevent sorting on this column
+			title: '', 
+			visible: false, // ID column (index 3)
+			searchable: false
+		},
+		{
+			title: '', 
+			visible: false, // Index column (index 4)
+			searchable: false
+		},
+		{
+			title: '', // Edit button (index 5)
+			orderable: false,
 			width: '1%',
 			render: function (data, type, row, meta) {
-				
-					return `<div class="d-flex justify-content-center">
-                <button
-                    data-rowid="${row[4]}"
-                    data-rowindex="${meta.row}"
-                    class="btn btn-sm btn-outline-primary table_button_edit_projeto_class"
-                >
-                    <i class="fa fa-edit"></i>
-                </button>
-            </div>`;
-				
+				return `<div class="d-flex justify-content-center">
+					<button
+						data-rowid="${row[3]}"
+						data-rowindex="${row[4]}"
+						class="btn btn-sm btn-outline-primary table_button_edit_projeto_class"
+					>
+						<i class="fa fa-edit"></i>
+					</button>
+				</div>`;
 			}
 		},
 		{
-			title: '', // No title for delete button column
-			orderable: false, // Prevent sorting on this column
+			title: '', // Delete button (index 6)
+			orderable: false,
 			width: '1%',
 			render: function (data, type, row, meta) {
-				
-					return `<div class="d-flex justify-content-center">
-                <button
-                    data-rowid="${row[4]}"
-                    data-rowindex="${meta.row}"
-                    class="btn btn-sm btn-outline-danger table_button_delete_projeto_class"
-                >
-                    <i class="fa fa-trash"></i>
-                </button>
-            </div>`;
-				
-				
+				return `<div class="d-flex justify-content-center">
+					<button
+						data-rowid="${row[3]}"
+						data-rowindex="${row[4]}"
+						class="btn btn-sm btn-outline-danger table_button_delete_projeto_class"
+					>
+						<i class="fa fa-trash"></i>
+					</button>
+				</div>`;
 			}
 		}
 	];
@@ -429,7 +403,6 @@ async function adicionarRadio() {
 	
 			fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json()),
 		]);
-		debugger;
 	
 		filteredradios = originalradiosjornaisData;
 		radiosData = originalradiosjornaisData;
@@ -505,70 +478,50 @@ async function adicionarRadio() {
 
 
 	function refreshTable() {
-		// @ts-ignore
+		if (!table) return;
+		
 		table.clear();
 		filteredradios.forEach((radio, index) => {
 			const rowData = [
-				`<div class="clickable-cell" data-rowindex="${index}">${radio.nome}</div>`,
+				radio.nome,
 				radio.email,
-				formatDate(radio.data_criacao)
+				formatDate(radio.data_criacao),
+				radio.id_radio_jornal, // Hidden data for buttons
+				index // Hidden data for buttons
 			];
-			// @ts-ignore
-			// @ts-ignore
-			table.row.add(rowData).node();
+			table.row.add(rowData);
+		});
 
-			jQuery(el).on('click', '.clickable-cell', function () {
-				const rowIndex = jQuery(this).data('rowindex');
-				const noticia = filteredNoticias[rowIndex];
-				showFullNews(noticia);
-			});
+		// Remove existing listeners before adding new ones
+		jQuery(document).off('click', '.table_button_edit_projeto_class');
+		jQuery(document).off('click', '.table_button_delete_projeto_class');
 
-			// @ts-ignore
-			// @ts-ignore
-			jQuery(document).on('click', '.table_button_details_projeto_class', function (E) {
-				const rowIndex = jQuery(this).data('rowindex');
-				const noticia = filteredNoticias[rowIndex];
-				showFullNews(noticia);
-			});
-
-			// @ts-ignore
-			// @ts-ignore
-			jQuery(document).on('click', '.table_button_edit_projeto_class', function (E) {
-				const rowIndex = jQuery(this).data('rowindex');
-
-
-				filteredradios = [...filteredradios]; // Ensures the array reference updates
-
-				const radio = filteredradios[rowIndex]; 
-
-				// ✅ Ensure radioselecao and newRadio are fully updated
+		// Handle Edit Button (opens modal)
+		jQuery(document).on('click', '.table_button_edit_projeto_class', function () {
+			const rowIndex = jQuery(this).data('rowindex');
+			const radio = filteredradios[rowIndex];
+			
+			if (radio) {
 				radioselecao = { ...radio };
 				newRadio = { ...radio };
-
-
-				// ✅ Slight delay to let Svelte recognize the changes
-				setTimeout(() => {
-					openModal();
-				}, 10);
-			});
-
-
-			// @ts-ignore
-			// @ts-ignore
-			jQuery(document).on('click', '.table_button_delete_projeto_class', function (E) {
-				const rowIndex = jQuery(this).data('rowindex');
-				const radio = filteredradios[rowIndex];
-				const modal = get(modalStore);
-				newRadio = { ...radio };
-				if (modal && modal.onOpenModal) {
-					modal.onOpenModal(newRadio);
-				}
-			});
+				openModal();
+			}
 		});
-		// @ts-ignore
+
+		// Handle Delete Button
+		jQuery(document).on('click', '.table_button_delete_projeto_class', function () {
+			const rowIndex = jQuery(this).data('rowindex');
+			const radio = filteredradios[rowIndex];
+			
+			const modal = get(modalStore);
+			if (radio && modal && modal.onOpenModal) {
+				newRadio = { ...radio };
+				modal.onOpenModal(newRadio);
+			}
+		});
+
 		table.draw();
 		loadingData = false;
-		
 	}
 
 	async function getData() {
@@ -577,7 +530,6 @@ async function adicionarRadio() {
 		
 			fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json())
 		]);
-		debugger;
 
 		filteredradios = originalradiosjornaisData;
 		radiosData = originalradiosjornaisData;

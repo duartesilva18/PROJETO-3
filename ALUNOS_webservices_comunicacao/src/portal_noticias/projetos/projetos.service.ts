@@ -1,12 +1,32 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProjetoDto } from '../dto/projeto.dto';
+import axios from 'axios';
 
 @Injectable()
 export class ProjetosService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listar() {
+    try {
+      // Tentar ir buscar ao webservice real do IPVC
+      const externalURL = "https://si-tech.ipvc.pt/api/sitech/application/public_web";
+      const response = await axios.get(externalURL);
+      
+      if (response.data && response.data.status === "success") {
+        return (response.data.data || []).map(p => ({
+          id_projeto: p.id,
+          assunto: p.acronym,
+          descricao: p.description,
+          estado: 'Ativo',
+          data_criacao: p.start_date
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao listar projetos do webservice externo, a carregar locais:', error.message);
+    }
+
+    // Fallback para projetos locais se o webservice falhar
     return this.prisma.pn_projeto.findMany({
       select: {
         id_projeto: true,

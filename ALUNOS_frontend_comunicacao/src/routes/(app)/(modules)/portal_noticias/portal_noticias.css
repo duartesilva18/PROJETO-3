@@ -49,7 +49,8 @@ li.breadcrumb-item.breadcrumb-module-title span.module-subtitle {
 .row.filter .btn,
 .filter-submit {
     margin: 10px 0;
-    min-width: 50px;
+    min-width: 90px;
+    padding: 4px 80px;
 }
 
 .filter-label-row {

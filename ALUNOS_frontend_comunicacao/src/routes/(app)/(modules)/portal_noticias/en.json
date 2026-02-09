@@ -91,7 +91,7 @@
         "dataCriacao":"Creation Date",
         "categoria":"Category",
         "editar":"Edit",
-        "eleminar":"Delete",
+        "eliminar":"Delete",
         "excluir":"Exclude",
         "nExisteNoticia":"There arent any News",
         "editarNoticia":"Edit News",
@@ -100,8 +100,8 @@
         "publish_message":"Publish new",
         "anexo": "Affix",
         "anexos": "Affixes",
-        "sanexos": "No affixes"
-
+        "sanexos": "No affixes",
+        "pesquisarPlaceholder": "Search by title or subject..."
     },
     "divRedes": {
         "Esp": "Specifications",

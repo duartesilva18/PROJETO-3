@@ -22,13 +22,21 @@ export class MidiaAnexosService {
     for (const item of items) {
       if (!item.ids_anexos || item.ids_anexos.length === 0) continue;
       for (const id_anexo of item.ids_anexos) {
+        const idAnexoStr = String(id_anexo).trim();
+        if (!idAnexoStr) continue;
+        // Só inserir se o anexo existir em pn_anexos (evita erro de FK)
+        const existe = await this.prisma.pn_anexos.findUnique({
+          where: { id_anexo: idAnexoStr },
+          select: { id_anexo: true }
+        });
+        if (!existe) continue;
         await this.prisma.$executeRawUnsafe(
           `INSERT INTO [dbo].[pn_noticia_radio_jornal_anexo]
             (id_noticia, id_radio_jornal, id_anexo, data_criacao)
            VALUES (@p1, @p2, @p3, GETDATE())`,
           id_noticia,
           item.id_radio_jornal,
-          id_anexo
+          idAnexoStr
         );
       }
     }

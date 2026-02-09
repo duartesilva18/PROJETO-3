@@ -4,7 +4,7 @@
 
 import Breadcrum from '$lib/components/Breadcrum.svelte';
 import { locale, t } from '$lib/translations/translations';
-import RemoveModal from './noticia/[id]/modals/RemoveModal.svelte';
+import RemoveModal from './rede-social/detalhe/[id]/modals/RemoveModal.svelte';
 import { configurePortalSidebar } from './sidebar.config.js';
 import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 	import { onMount } from 'svelte';
@@ -115,12 +115,12 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 
 	function handleSelect(noticia) {
 		noticiaSelecionada = noticia;
-		goto(`/portal_noticias/noticias-editar/${noticia.id_noticia}`);
+		goto(`/portal_noticias/rede-social/editar/${noticia.id_noticia}`);
 	}
 
 	function handleSelectdois(noticia) {
 		noticiaSelecionada = noticia;
-		goto(`/portal_noticias/noticias-editar-midia/${noticia.id_noticia}`);
+		goto(`/portal_noticias/radios-jornais/editar/${noticia.id_noticia}`);
 	}
 
 	async function updateNoticias() {
@@ -137,7 +137,7 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 	}
 
 	function showFullNews(noticia) {
-		goto(`/portal_noticias/noticias-detalhe/${noticia.id_noticia}`);
+		goto(`/portal_noticias/rede-social/detalhe/${noticia.id_noticia}`);
 	}
 
 	function onHandleSubmit(e) {
@@ -217,7 +217,11 @@ const AGENDADO_FILTER_VALUE = '__AGENDADO__';
 	}
 
 	function createNoticia() {
-		goto('/portal_noticias/noticias-criar');
+		if (isToggled) {
+			goto('/portal_noticias/radios-jornais/criar');
+		} else {
+			goto('/portal_noticias/rede-social/criar');
+		}
 	}
 
 	let table = $state();
@@ -898,12 +902,12 @@ otíciasDatamedia.forEach((noticia, index) => {
 	menu_items={items_breadcrum}
 />
 
-<div class="tableNews">
+<div class="tableNews listar-noticias-page">
 	<div class="row filter">
 		<form onsubmit={preventDefault(onHandleSubmit)} class="w-100">
 			<div class="row filter-row align-items-start g-3">
 				<!-- CATEGORIA -->
-				<div class="col-md-3 col-lg-3" id="categoriaInputContainer">
+				<div class="col-md-4" id="categoriaInputContainer">
 					<label for="categoriaInput" class="filter-label">
 						{$t('divPublicar.Categorias')}
 					</label>
@@ -920,7 +924,7 @@ otíciasDatamedia.forEach((noticia, index) => {
 				</div>
 	
 				<!-- ESTADO -->
-				<div class="col-md-3 col-lg-3">
+				<div class="col-md-4">
 					<label for="estadoInput" class="filter-label">
 						{$t('divNoticias.estado')}
 					</label>
@@ -937,12 +941,12 @@ otíciasDatamedia.forEach((noticia, index) => {
 				</div>
 	
 				<!-- BOTÃO PESQUISAR, À DIREITA -->
-				<div class="col-md-3 col-lg-3 d-flex flex-column align-items-center align-items-md-start">
+				<div class="col-md-4 d-flex flex-column align-items-center align-items-md-start">
 					<span class="filter-label d-block">&nbsp;</span>
 					<button
 						type="submit"
 						class="btn btn-primary btn-sm filter-submit"
-						style="margin-top: 0px; background-color: #00a4e6; border-color: #00a4e6;"
+						style="margin: 0 !important;"
 						aria-label={$t('divNoticias.btPesquisar')}
 					>
 						<i class="fas fa-search"></i>
@@ -993,48 +997,44 @@ otíciasDatamedia.forEach((noticia, index) => {
 
 <style>
 	@import './portal_noticias.css';
-	/* barra dos filtros tipo IPVC */
-.row.filter {
-	border-bottom: 1px solid #dde3ea;
-	padding: 8px 24px 10px;
-}
 
-/* labels em cima, pequenas e azuis */
-.filter-label {
-	display: block;
-	margin-bottom: 3px;
-	font-size: 11px;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	color: #7fa0b5;
-}
+	.row.filter {
+		border-bottom: 1px solid #dde3ea;
+		padding: 8px 24px 10px;
+	}
 
-/* selects baixinhos e alinhados */
-.filter-row .form-control {
-	height: 34px;
-	font-size: 13px;
-	border-radius: 2px;
-	border: 1px solid #cfd6dd;
-	box-shadow: none;
-}
+	.filter-label {
+		display: block;
+		margin-bottom: 3px;
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: #7fa0b5;
+	}
 
-/* botão azul à direita, com largura fixa tipo print */
-.filter-submit {
-	height: 34px;
-	min-width: 90px;
-	padding: 0 80px;
-	border-radius: 4px;
-	background-color: #00a4e6;
-	border-color: #00a4e6;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	margin-top: -100px;
-}
+	.filter-row .form-control {
+		height: 34px;
+		font-size: 13px;
+		border-radius: 2px;
+		border: 1px solid #cfd6dd;
+		box-shadow: none;
+	}
 
-.filter-submit i {
-	font-size: 15px;
-}
+	.filter-submit {
+		height: 34px;
+		min-width: 90px;
+		padding: 0 80px !important;
+		border-radius: 4px;
+		background-color: #00a4e6;
+		border-color: #00a4e6;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		margin: 0 !important;
+	}
 
+	.filter-submit i {
+		font-size: 15px;
+	}
 </style>

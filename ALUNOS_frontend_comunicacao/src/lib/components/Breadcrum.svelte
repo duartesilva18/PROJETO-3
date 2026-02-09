@@ -38,6 +38,17 @@
     border-color: #20a8d8 !important;
 }
 
+.btn-danger-breadcrumb {
+    background-color: #f86c6b !important;
+    border-color: #f86c6b !important;
+}
+
+.btn-danger-breadcrumb:hover {
+    color: #f86c6b !important;
+    background-color: #fff !important;
+    border-color: #f86c6b !important;
+}
+
 
 </style>
 
@@ -55,9 +66,9 @@
     <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
         {#each menu_items as item}
             {#if item.hasOwnProperty("function")}
-                <a data-link="#" onclick={item.function} style="" class="btn botao-breadcrumb-on ml-1 py-1" href="#" role="button" aria-haspopup="true" aria-expanded="false"><i class={item.icon_class}></i> &nbsp; {item.designacao}</a>
+                <a data-link="#" onclick={item.function} style="" class="btn botao-breadcrumb-on ml-1 py-1 {item.class || ''}" href="#" role="button" aria-haspopup="true" aria-expanded="false"><i class={item.icon_class}></i> &nbsp; {item.designacao}</a>
             {:else}
-                <a data-link="#" style="" class="btn botao-breadcrumb-on ml-1 py-1" target={item.target || undefined} href={item.url} role="button" aria-haspopup="true" aria-expanded="false"><i class={item.icon_class}></i> &nbsp; {item.designacao}</a>
+                <a data-link="#" style="" class="btn botao-breadcrumb-on ml-1 py-1 {item.class || ''}" target={item.target || undefined} href={item.url} role="button" aria-haspopup="true" aria-expanded="false"><i class={item.icon_class}></i> &nbsp; {item.designacao}</a>
             {/if}
             {/each}
         </div>

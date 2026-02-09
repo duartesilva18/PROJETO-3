@@ -10,19 +10,24 @@ export const load = async ({ depends, locals, cookies }) => {
     // MODULOS
     //
     let sidebar_modulos = [];
-    sidebar_modulos = await fetch(PUBLIC_API_URL + "modulos", {
-        method: "POST",
-        headers: {
-            // @ts-ignore
-            "Authorization": "Bearer " + (locals?.info_utili.jwt_api),
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            // @ts-ignore
-            id_utilizador: locals?.info_utili.id_utilizador,
-            lang: locale.get()
-        })
-    }).then(d => d.json())
+    try {
+        sidebar_modulos = await fetch(PUBLIC_API_URL + "modulos", {
+            method: "POST",
+            headers: {
+                // @ts-ignore
+                "Authorization": "Bearer " + (locals?.info_utili.jwt_api),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                // @ts-ignore
+                id_utilizador: locals?.info_utili.id_utilizador,
+                lang: locale.get()
+            })
+        }).then(d => d.json());
+    } catch (err) {
+        console.warn('[layout.server] API indisponível (modulos):', err?.cause?.code || err?.message);
+        sidebar_modulos = [];
+    }
 
     // urls V1 e V2
     if(Array.isArray(sidebar_modulos)){
@@ -67,20 +72,25 @@ export const load = async ({ depends, locals, cookies }) => {
     // força a usar o módulo do Portal de Notícias em vez do módulo de exemplos (id 1)
     const effectiveModId = rawModId === 1 ? 2 : rawModId;
 
-    sidebar_areas = await fetch(PUBLIC_API_URL + "objetos", {
-        method: "POST",
-        headers: {
-            // @ts-ignore
-            "Authorization": "Bearer " + (locals?.info_utili.jwt_api),
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            // @ts-ignore
-            id_utilizador: locals?.info_utili.id_utilizador,
-            id_modulo: effectiveModId,
-            lang: locale.get()
-        })
-    }).then(d => d.json())
+    try {
+        sidebar_areas = await fetch(PUBLIC_API_URL + "objetos", {
+            method: "POST",
+            headers: {
+                // @ts-ignore
+                "Authorization": "Bearer " + (locals?.info_utili.jwt_api),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                // @ts-ignore
+                id_utilizador: locals?.info_utili.id_utilizador,
+                id_modulo: effectiveModId,
+                lang: locale.get()
+            })
+        }).then(d => d.json());
+    } catch (err) {
+        console.warn('[layout.server] API indisponível (objetos):', err?.cause?.code || err?.message);
+        sidebar_areas = [];
+    }
     // urls V1 e V2
     if(Array.isArray(sidebar_areas)){
         sidebar_areas.forEach(function (area, idx) {

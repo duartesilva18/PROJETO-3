@@ -14,24 +14,48 @@
 	let loading = $state(true);
 
 	let filtros = $state({
-		ano: ''
+		ano: '',
+		id_projeto: '',
+		id_categoria: ''
 	});
 
 	let anoSelecionado = $state('');
+	let projetoSelecionadoFiltro = $state('');
+	let categoriaSelecionadaFiltro = $state('');
 
 	let noticias = $state([]);
 	let radios = $state([]);
 	let redesSociais = $state([]);
 	let tags = $state([]);
+	let projetos = $state([]);
+	let categorias = $state([]);
 
 	function filtrarNoticias() {
 		let lista = noticias;
 
+		// Filtro por Ano
 		if (filtros.ano) {
 			lista = lista.filter((n) => {
 				if (!n.data_criacao) return false;
 				const ano = new Date(n.data_criacao).getFullYear().toString();
-				return ano === filtros.ano;
+				return ano === String(filtros.ano);
+			});
+		}
+
+		// Filtro por Projeto
+		if (filtros.id_projeto && filtros.id_projeto !== '') {
+			lista = lista.filter((n) => {
+				const idProj = n.id_projeto;
+				return idProj !== null && idProj !== undefined && String(idProj) === String(filtros.id_projeto);
+			});
+		}
+
+		// Filtro por Categoria
+		if (filtros.id_categoria && filtros.id_categoria !== '') {
+			lista = lista.filter((n) => {
+				const idCat = n.id_categoria_FK || n.pn_categoria?.id_categoria;
+				if (!idCat) return false;
+				return String(idCat).toLowerCase() === String(filtros.id_categoria).toLowerCase();
 			});
 		}
 
@@ -112,17 +136,21 @@
 
 	onMount(async () => {
 		try {
-			const [dados, radiosData, redesSociaisData, tagsData] = await Promise.all([
+			const [dados, radiosData, redesSociaisData, tagsData, projetosData, categoriasData] = await Promise.all([
 				fetch('/ep/portal_noticias/dados').then((d) => d.json()),
 				fetch('/ep/portal_noticias/radio_jornal').then((d) => d.json()),
 				fetch('/ep/portal_noticias/redes').then((d) => d.json()),
-				fetch('/ep/portal_noticias/tags').then((d) => d.json())
+				fetch('/ep/portal_noticias/tags').then((d) => d.json()),
+				fetch('/ep/portal_noticias/getJson').then((d) => d.json()),
+				fetch('/ep/portal_noticias/categorias').then((d) => d.json())
 			]);
 
 			noticias = Array.isArray(dados) ? dados : [];
 			radios = Array.isArray(radiosData) ? radiosData : [];
 			redesSociais = Array.isArray(redesSociaisData) ? redesSociaisData : [];
 			tags = Array.isArray(tagsData) ? tagsData : [];
+			projetos = Array.isArray(projetosData) ? projetosData : [];
+			categorias = Array.isArray(categoriasData) ? categoriasData : [];
 
 			const anosSet = new Set(
 				noticias
@@ -131,8 +159,10 @@
 			);
 			anosDisponiveis = Array.from(anosSet).sort().reverse();
 			
-			// Inicializar anoSelecionado com o valor atual do filtro
+			// Inicializar selecionados com o valor atual do filtro
 			anoSelecionado = filtros.ano;
+			projetoSelecionadoFiltro = filtros.id_projeto;
+			categoriaSelecionadaFiltro = filtros.id_categoria;
 		} catch (e) {
 			console.error('Erro a carregar estatísticas de notícias', e);
 		} finally {
@@ -608,6 +638,8 @@ $effect(() => {
 
 	function aplicarFiltro() {
 		filtros.ano = anoSelecionado;
+		filtros.id_projeto = projetoSelecionadoFiltro;
+		filtros.id_categoria = categoriaSelecionadaFiltro;
 		// Força atualização dos KPIs e gráficos
 		if (!loading && dashboardVisible) {
 			updateCharts();
@@ -623,10 +655,10 @@ $effect(() => {
 
 <div class="tableNews mt-2">
 	<div class="row filter">
-		<form on:submit|preventDefault={aplicarFiltro} class="w-100">
+		<form onsubmit={(e) => { e.preventDefault(); aplicarFiltro(); }} class="w-100">
 			<div class="row filter-row align-items-start g-3">
 				<!-- ANO -->
-				<div class="col-md-3 col-lg-3">
+				<div class="col-md-3">
 					<label class="filter-label">{$t('divEstatisticas.ano')}</label>
 					<select class="form-control" bind:value={anoSelecionado}>
 						<option value="">{$t('divEstatisticas.todos')}</option>
@@ -636,13 +668,35 @@ $effect(() => {
 					</select>
 				</div>
 
-				<!-- BOTÃO PESQUISAR, À DIREITA -->
-				<div class="col-md-3 col-lg-3 d-flex flex-column align-items-center align-items-md-start">
+				<!-- PROJETO -->
+				<div class="col-md-3">
+					<label class="filter-label">Projeto</label>
+					<select class="form-control" bind:value={projetoSelecionadoFiltro}>
+						<option value="">Todos</option>
+						{#each projetos as projeto}
+							<option value={projeto.id_projeto}>{projeto.assunto}</option>
+						{/each}
+					</select>
+				</div>
+
+				<!-- CATEGORIA -->
+				<div class="col-md-3">
+					<label class="filter-label">Categoria</label>
+					<select class="form-control" bind:value={categoriaSelecionadaFiltro}>
+						<option value="">Todas</option>
+						{#each categorias as categoria}
+							<option value={categoria.id_categoria}>{categoria.nome}</option>
+						{/each}
+					</select>
+				</div>
+
+				<!-- BOTÃO PESQUISAR -->
+				<div class="col-md-3 d-flex flex-column align-items-center align-items-md-start">
 					<span class="filter-label d-block">&nbsp;</span>
 					<button
 						type="submit"
 						class="btn btn-primary btn-sm filter-submit"
-						style="margin-top: 0px; background-color: #00a4e6; border-color: #00a4e6;"
+						style="margin: 0 !important;"
 						aria-label={tf('divNoticias.btPesquisar')}
 					>
 						<i class="fas fa-search"></i>
@@ -651,16 +705,6 @@ $effect(() => {
 			</div>
 		</form>
 	</div>
-
-	<script>
-		function aplicarFiltro() {
-			filtros.ano = anoSelecionado;
-			// Força atualização dos KPIs e gráficos
-			if (!loading && dashboardVisible) {
-				updateCharts();
-			}
-		}
-	</script>
 
 	<div class="row mt-4 kpi-row">
 		<div class="col-md-2 col-sm-6 mb-3">
@@ -704,19 +748,6 @@ $effect(() => {
 				<div class="kpi-label">{$t('divEstatisticas.noticiasApenasPortalIPVC')}</div>
 				<div class="kpi-subtitle">{$t('divEstatisticas.soPortalIPVC')}</div>
 			</div>
-		</div>
-	</div>
-
-	<div class="row mt-3">
-		<div class="col-12 d-flex align-items-center">
-			<button
-				type="button"
-				class="btn btn-outline-info btn-sm dashboard-toggle-btn"
-				on:click={toggleDashboard}
-			>
-				<i class="fas fa-chart-pie mr-1"></i>
-				{dashboardVisible ? $t('divEstatisticas.ocultarDashboard') : $t('divEstatisticas.mostrarDashboard')}
-			</button>
 		</div>
 	</div>
 
@@ -826,7 +857,7 @@ $effect(() => {
 <style>
 	@import '../portal_noticias.css';
 
-	.filter-row {
+	.row.filter {
 		border-bottom: 1px solid #dde3ea;
 		padding: 8px 24px 10px;
 	}
@@ -839,6 +870,27 @@ $effect(() => {
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
 		color: #7fa0b5;
+	}
+
+	.filter-row .form-control {
+		height: 34px;
+		font-size: 13px;
+		border-radius: 2px;
+		border: 1px solid #cfd6dd;
+		box-shadow: none;
+	}
+
+	.filter-submit {
+		height: 34px;
+		min-width: 90px;
+		padding: 4px 80px !important;
+		border-radius: 4px;
+		background-color: #00a4e6;
+		border-color: #00a4e6;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		margin: 0 !important;
 	}
 
 	.kpi-row {

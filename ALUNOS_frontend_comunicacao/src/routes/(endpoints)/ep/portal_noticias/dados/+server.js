@@ -114,6 +114,7 @@ export async function PUT({ url, fetch, locals, request }) {
   try {
     const dados = await request.json();
     const noticiaId = url.searchParams.get("id_noticia");
+    console.log("[EP/dados] PUT atualizar notícia", noticiaId, "estado:", dados?.estado);
 
     if (!noticiaId) {
       return json(

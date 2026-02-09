@@ -144,7 +144,26 @@ export class NoticiasService {
     const hasIdProjeto = Number.isFinite(parsedIdProjeto);
     const hasTipo = Number.isFinite(parsedTipo);
 
-    return this.prisma.$transaction(async (tx) => {
+    // Se tiver ID de projeto, garantir que ele existe na tabela pn_projeto (stub se necessário)
+    if (hasIdProjeto) {
+      const projetoExist = await this.prisma.pn_projeto.findUnique({
+        where: { id_projeto: parsedIdProjeto }
+      });
+
+      if (!projetoExist) {
+        // Criar um stub via SQL bruto para contornar o IDENTITY_INSERT
+        const assunto = `Projeto ${parsedIdProjeto}`;
+        const descricao = 'Carregado via Webservice Real';
+        await this.prisma.$executeRawUnsafe(`
+          SET IDENTITY_INSERT dbo.pn_projeto ON;
+          INSERT INTO dbo.pn_projeto (id_projeto, assunto, descricao, estado, data_criacao)
+          VALUES (${parsedIdProjeto}, '${assunto}', '${descricao}', 'Ativo', GETDATE());
+          SET IDENTITY_INSERT dbo.pn_projeto OFF;
+        `);
+      }
+    }
+
+    const created = await this.prisma.$transaction(async (tx) => {
       return tx.pn_noticia.create({
         data: {
           titulo: dto.titulo,
@@ -191,6 +210,12 @@ export class NoticiasService {
           }
         }
       });
+    });
+
+    // Devolver a notícia com pn_anexos para o frontend obter os id_anexo reais (para saveMidiaAnexos)
+    return this.prisma.pn_noticia.findUnique({
+      where: { id_noticia: created.id_noticia },
+      include: { pn_anexos: true }
     });
   }
 
@@ -260,7 +285,37 @@ export class NoticiasService {
     const hasIdProjeto = Number.isFinite(parsedIdProjeto);
     const hasTipo = Number.isFinite(parsedTipo);
 
+    // Se tiver ID de projeto, garantir que ele existe na tabela pn_projeto (stub se necessário)
+    if (hasIdProjeto) {
+      const projetoExist = await this.prisma.pn_projeto.findUnique({
+        where: { id_projeto: parsedIdProjeto }
+      });
+
+      if (!projetoExist) {
+        // Criar um stub via SQL bruto para contornar o IDENTITY_INSERT
+        const assunto = `Projeto ${parsedIdProjeto}`;
+        const descricao = 'Carregado via Webservice Real';
+        await this.prisma.$executeRawUnsafe(`
+          SET IDENTITY_INSERT dbo.pn_projeto ON;
+          INSERT INTO dbo.pn_projeto (id_projeto, assunto, descricao, estado, data_criacao)
+          VALUES (${parsedIdProjeto}, '${assunto}', '${descricao}', 'Ativo', GETDATE());
+          SET IDENTITY_INSERT dbo.pn_projeto OFF;
+        `);
+      }
+    }
+
     try {
+      const estadoEnviado =
+        dto.estado != null && String(dto.estado).trim() !== ''
+          ? String(dto.estado).trim()
+          : null;
+      const novoEstado =
+        estadoEnviado === 'Publicado' || estadoEnviado === 'Pendente'
+          ? estadoEnviado
+          : (noticiaExist.estado ?? 'Pendente');
+
+      console.log('[updateNoticia] id=', noticiaID, 'dto.estado=', dto?.estado, 'novoEstado=', novoEstado);
+
       const updateData: any = {
         titulo: dto.titulo,
         texto: dto.texto,
@@ -270,7 +325,7 @@ export class NoticiasService {
         texto_twitter: dto.texto_twitter || null,
         texto_tiktok: dto.texto_tiktok || null,
         texto_portalipvc: dto.texto_portalipvc || null,
-        estado: dto.estado,
+        estado: novoEstado,
         emails: dto.emails || null,
         ...(hasTipo ? { tipo: parsedTipo } : { tipo: null }),
         pn_projeto: hasIdProjeto
@@ -365,7 +420,13 @@ export class NoticiasService {
         data: updateData
       });
 
-      return updatedNoticia;
+      // Garantir que o estado seja persistido (update explícito, evita que relações aninhadas o ignorem)
+      await this.prisma.pn_noticia.update({
+        where: { id_noticia: noticiaID },
+        data: { estado: novoEstado }
+      });
+
+      return { ...updatedNoticia, estado: novoEstado };
     } catch (error: any) {
       console.error('Erro ao atualizar notícia:', error);
       console.error('Detalhes do erro:', {
@@ -389,7 +450,12 @@ export class NoticiasService {
           pn_anexos: true,
           pn_categoria: true,
           pn_noticia_Tag: true,
-          pn_rs_noticia: true
+          pn_rs_noticia: true,
+          pn_agendamento_rede: {
+            include: {
+              pn_redes_sociais: true
+            }
+          }
         }
       });
     } catch {
